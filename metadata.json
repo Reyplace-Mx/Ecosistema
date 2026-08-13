@@ -1,6 +1,6 @@
 {
   "name": "Reyplace",
   "description": "Ecosistema digital híbrido modular. Dashboard principal enfocando en Módulo 1: Usuarios & ReyID.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

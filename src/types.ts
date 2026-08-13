@@ -362,6 +362,20 @@ export interface CupulaThreat {
   timestamp: string;
 }
 
+export interface WebAuthnDevice {
+  id: string;
+  name: string;
+  type: 'fingerprint' | 'faceid' | 'hardware_key' | 'passkey';
+  credentialId: string;
+  registeredAt: string;
+  lastUsedAt: string;
+  authenticatorAttachment: 'platform' | 'cross-platform';
+  status: 'active' | 'revoked';
+  algorithm: 'ES256' | 'Ed25519' | 'RS256';
+}
+
+export type SupabaseSyncState = 'synced' | 'syncing' | 'signing' | 'updated' | 'error';
+
 export interface Web3Transaction {
   id: string;
   hash: string;

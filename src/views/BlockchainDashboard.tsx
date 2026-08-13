@@ -6,6 +6,7 @@ import {
   Link, ShieldCheck, Image as ImageIcon, RefreshCw, Layers, Database
 } from 'lucide-react';
 import type { Web3Transaction } from '../types';
+import { BlockchainVolumeChart } from '../components/BlockchainVolumeChart';
 
 const MOCK_TRANSACTIONS: Web3Transaction[] = [
   { id: 'tx_1', hash: '0x8f...3b9a', type: 'transfer', amount: 150.00, from: '0x12...a4f2', to: '0x99...b8e1', status: 'confirmed', timestamp: 'Hace 2 min' },
@@ -150,6 +151,11 @@ export function BlockchainDashboard() {
           </div>
         </div>
       </motion.div>
+
+      {/* Interactive Volume & Network Health Chart */}
+      <section className="w-full">
+        <BlockchainVolumeChart />
+      </section>
 
       {/* Vista de Transacciones L2 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

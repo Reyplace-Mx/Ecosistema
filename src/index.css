@@ -1,12 +1,21 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  /* Official Reyplace Brand Colors */
+  --color-reyplace-cyan: #00d2ff;
+  --color-reyplace-blue: #2563eb;
+  --color-reyplace-magenta: #d946ef;
+  --color-reyplace-orange: #f97316;
+  --color-reyplace-green: #10b981;
+  --color-reyplace-navy: #061024;
 }
 
 html.dark {
-  background-color: #050505;
+  background-color: #050a18;
   color: #f4f4f5;
   color-scheme: dark;
 }
@@ -30,7 +39,7 @@ html, body {
 }
 
 html.dark ::-webkit-scrollbar-track {
-  background: #0A0A0C;
+  background: #061024;
 }
 
 html.light ::-webkit-scrollbar-track {
@@ -38,7 +47,7 @@ html.light ::-webkit-scrollbar-track {
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #1e293b;
   border-radius: 4px;
 }
 
@@ -48,7 +57,254 @@ html.light ::-webkit-scrollbar-thumb {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #06b6d4;
+  background: #00d2ff;
 }
+
+/* Official Reyplace Aurora Spectrum & Glassmorphism Styling */
+
+@keyframes liquid-morph {
+  0%, 100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    transform: rotate(120deg) scale(1.08);
+  }
+  66% {
+    border-radius: 70% 30% 50% 60% / 40% 70% 60% 30%;
+    transform: rotate(240deg) scale(0.92);
+  }
+}
+
+@keyframes liquid-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.25), inset 0 0 15px rgba(217, 70, 239, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.45), inset 0 0 25px rgba(249, 115, 22, 0.25);
+  }
+}
+
+.animate-liquid-morph {
+  animation: liquid-morph 18s ease-in-out infinite;
+}
+
+.animate-liquid-morph-slow {
+  animation: liquid-morph 26s ease-in-out infinite reverse;
+}
+
+.animate-liquid-flow {
+  background-size: 250% 250%;
+  animation: liquid-flow 8s ease infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3.5s ease-in-out infinite;
+}
+
+/* Glassmorphism Dark - Official Reyplace Cosmic Dark */
+.glass-panel-dark {
+  background: rgba(8, 18, 38, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Glassmorphism Reyplace Spectrum Card */
+.glass-panel-reyplace {
+  background: linear-gradient(135deg, rgba(6, 16, 36, 0.85) 0%, rgba(11, 27, 61, 0.75) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid transparent;
+  border-image: linear-gradient(135deg, rgba(0, 210, 255, 0.4), rgba(37, 99, 235, 0.2), rgba(217, 70, 239, 0.3), rgba(249, 115, 22, 0.3)) 1;
+  box-shadow: 0 12px 40px 0 rgba(2, 8, 20, 0.6),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism Light */
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(11, 27, 61, 0.08),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Brand Text Spectrum Gradient (Cyan -> Blue -> Magenta -> Orange) */
+.brand-text-gradient {
+  background: linear-gradient(135deg, #00d2ff 0%, #2563eb 30%, #d946ef 70%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Slogan Color Classes */
+.text-brand-conectamos {
+  color: #00d2ff;
+}
+.text-brand-innovamos {
+  color: #d946ef;
+}
+.text-brand-transformamos {
+  color: #f97316;
+}
+
+/* Neumorphic Dark Controls */
+.neu-card-dark {
+  background: #061024;
+  box-shadow: 6px 6px 16px #030814,
+              -6px -6px 16px #091834;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neu-card-light {
+  background: #f8fafc;
+  box-shadow: 6px 6px 16px #e2e8f0,
+              -6px -6px 16px #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.neu-inset-dark {
+  background: #040a18;
+  box-shadow: inset 3px 3px 6px #02050c,
+              inset -3px -3px 6px #071024;
+}
+
+/* Brand Buttons with Liquid Glow */
+.neu-button-cyan {
+  background: linear-gradient(135deg, #00d2ff 0%, #2563eb 100%);
+  box-shadow: 0 4px 18px rgba(0, 210, 255, 0.35),
+              inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.neu-button-cyan:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 210, 255, 0.5),
+              inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.brand-button-spectrum {
+  background: linear-gradient(135deg, #00d2ff 0%, #2563eb 35%, #d946ef 70%, #f97316 100%);
+  background-size: 200% 200%;
+  animation: liquid-flow 6s ease infinite;
+  box-shadow: 0 4px 20px rgba(217, 70, 239, 0.35),
+              inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: all 0.25s ease;
+}
+
+.brand-button-spectrum:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(217, 70, 239, 0.55),
+              inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Soft Rainbow Spectrum Shimmer Hover Effect for REYPLACE VERIFIED Stamp */
+@keyframes rainbow-shimmer-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.rainbow-shimmer-stamp {
+  position: relative;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* Rainbow border overlay mask on hover */
+.rainbow-shimmer-stamp::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(90deg, #00d2ff, #2563eb, #d946ef, #f97316, #10b981, #00d2ff);
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.rainbow-shimmer-stamp:hover::before {
+  opacity: 1;
+  animation: rainbow-shimmer-sweep 3s ease infinite;
+}
+
+/* Glossy light sheen sweep on hover */
+.rainbow-shimmer-stamp::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  transform: skewX(-25deg);
+  pointer-events: none;
+}
+
+.rainbow-shimmer-stamp:hover::after {
+  left: 150%;
+  transition: left 0.85s ease-in-out;
+}
+
+.rainbow-shimmer-stamp:hover {
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.35), 0 0 12px rgba(217, 70, 239, 0.25);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.rainbow-shimmer-stamp .shimmer-text {
+  transition: all 0.35s ease;
+}
+
+.rainbow-shimmer-stamp:hover .shimmer-text {
+  background: linear-gradient(90deg, #00d2ff 0%, #2563eb 25%, #d946ef 50%, #f97316 75%, #10b981 100%, #00d2ff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-shimmer-sweep 3s ease infinite;
+  font-weight: 800;
+}
+
+.rainbow-shimmer-stamp:hover .shimmer-icon {
+  color: #00d2ff;
+  filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.8)) drop-shadow(0 0 12px rgba(217, 70, 239, 0.5));
+  transform: scale(1.15) rotate(5deg);
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+
+
 
 

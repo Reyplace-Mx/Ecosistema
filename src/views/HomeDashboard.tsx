@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { IntroVideoModal } from '../components/IntroVideoModal';
+import { WelcomeHero } from '../components/WelcomeHero';
 import brandBanner from '../assets/images/reyplace_brand_banner_1786197069951.jpg';
 import logoBadge from '../assets/images/reyplace_logo_badge_1786197084782.jpg';
 import { 
@@ -67,6 +68,9 @@ export function HomeDashboard({ onNavigate }: HomeDashboardProps) {
 
       {/* Intro Video Modal */}
       <IntroVideoModal isOpen={isVideoOpen} onClose={() => setIsVideoOpen(false)} />
+
+      {/* Hero de Bienvenida (Pantalla Inicial) */}
+      <WelcomeHero onNavigate={onNavigate} onOpenVideo={() => setIsVideoOpen(true)} />
 
       {/* Header Inteligente */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-[#111112] p-4 sm:p-6 rounded-2xl border border-white/5 shadow-xl">
