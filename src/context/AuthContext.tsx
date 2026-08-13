@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { syncUserDataToFirestore, subscribeToReyIDFirestore } from '../lib/firestoreSync';
 
 export interface UserSession {
   uid: string;
@@ -14,17 +15,20 @@ export interface UserSession {
   securityLevel: 'standard' | 'high' | 'maximum';
   joinedAt: string;
   authProvider?: 'email' | 'google' | 'web3';
+  livenessVerified?: boolean;
+  verificationLevel?: number;
 }
 
 interface AuthContextType {
   user: UserSession | null;
   isLoggedIn: boolean;
-  login: (email: string, name?: string) => Promise<void>;
-  signup: (email: string, name: string, handle?: string) => Promise<void>;
+  login: (email: string, password?: string, name?: string) => Promise<void>;
+  signup: (email: string, password?: string, name?: string, handle?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithWeb3Wallet: () => Promise<void>;
   logout: () => void;
   updateUserBalance: (amount: number) => void;
+  setLivenessVerified: (verified: boolean) => void;
 }
 
 const DEFAULT_USER: UserSession = {
@@ -40,6 +44,8 @@ const DEFAULT_USER: UserSession = {
   securityLevel: 'maximum',
   joinedAt: '2024-11-12',
   authProvider: 'google',
+  livenessVerified: true,
+  verificationLevel: 3,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,17 +60,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  // Supabase Auth Listener and Session Sync
   useEffect(() => {
-    // Check Supabase active session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        // If we wanted to merge Supabase user with local demo state:
         const mergedUser: UserSession = {
           ...DEFAULT_USER,
           uid: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || 'Supabase User',
-          authProvider: session.user.app_metadata?.provider as any || 'email',
+          name: session.user.user_metadata?.full_name || 'Ciudadano ReyID',
+          handle: session.user.user_metadata?.handle || `@${(session.user.email || 'user').split('@')[0]}`,
+          authProvider: (session.user.app_metadata?.provider as any) || 'email',
         };
         setUser(mergedUser);
       }
@@ -76,17 +82,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...DEFAULT_USER,
           uid: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || 'Supabase User',
-          authProvider: session.user.app_metadata?.provider as any || 'email',
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Ciudadano ReyID',
+          handle: session.user.user_metadata?.handle || `@${(session.user.email || 'user').split('@')[0]}`,
+          authProvider: (session.user.app_metadata?.provider as any) || 'email',
         };
         setUser(mergedUser);
-      } else {
-        setUser(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Firestore Realtime Listener for multi-device sync
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Sync current session state to Firestore
+    syncUserDataToFirestore({
+      userId: user.uid,
+      fullName: user.name,
+      email: user.email,
+      handle: user.handle,
+      verificationLevel: user.verificationLevel || 3,
+      biometricVerified: !!user.livenessVerified,
+      livenessCompleted: !!user.livenessVerified,
+      updatedAt: new Date().toISOString(),
+      devicesCount: 3,
+      walletAddress: user.walletAddress,
+      reputationScore: 98,
+    });
+
+    // Realtime listener
+    const unsubscribeDoc = subscribeToReyIDFirestore(user.uid, (firestoreData) => {
+      setUser((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          verificationLevel: firestoreData.verificationLevel,
+          livenessVerified: firestoreData.biometricVerified,
+        };
+      });
+    });
+
+    return () => {
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     if (user) {
@@ -96,29 +137,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = async (email: string, name?: string) => {
-    // In a real app we'd do: await supabase.auth.signInWithPassword({ email, password })
-    // For demo keeping the delay pattern to avoid requiring password form yet
+  const login = async (email: string, password?: string, name?: string) => {
+    if (password && import.meta.env.VITE_SUPABASE_URL) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.warn('Supabase Login warn:', error.message);
+      } else if (data.session?.user) {
+        const supUser: UserSession = {
+          ...DEFAULT_USER,
+          uid: data.session.user.id,
+          email: data.session.user.email || email,
+          name: name || data.session.user.user_metadata?.full_name || email.split('@')[0],
+          authProvider: 'email',
+        };
+        setUser(supUser);
+        return;
+      }
+    }
+
+    // Fallback demo login
     await new Promise((res) => setTimeout(res, 600));
     const cleanName = name || email.split('@')[0].toUpperCase();
-    setUser({
+    const loggedUser: UserSession = {
       ...DEFAULT_USER,
       email,
       name: cleanName,
       handle: `@${email.split('@')[0].toLowerCase()}`,
       authProvider: 'email',
-    });
+    };
+    setUser(loggedUser);
   };
 
-  const signup = async (email: string, name: string, handle?: string) => {
+  const signup = async (email: string, password?: string, name?: string, handle?: string) => {
+    const displayName = name || email.split('@')[0];
+    if (password && import.meta.env.VITE_SUPABASE_URL) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: displayName, handle }
+        }
+      });
+      if (error) {
+        console.warn('Supabase Signup warn:', error.message);
+      } else if (data.user) {
+        const supUser: UserSession = {
+          ...DEFAULT_USER,
+          uid: data.user.id,
+          email,
+          name: displayName,
+          handle: handle ? (handle.startsWith('@') ? handle : `@${handle}`) : `@${displayName.toLowerCase().replace(/\s+/g, '')}`,
+          authProvider: 'email',
+        };
+        setUser(supUser);
+        return;
+      }
+    }
+
     await new Promise((res) => setTimeout(res, 700));
     const randomHex = Math.random().toString(16).substring(2, 10);
     const newUser: UserSession = {
       ...DEFAULT_USER,
       uid: `usr_${Math.random().toString(36).substring(2, 8)}`,
       email,
-      name,
-      handle: handle ? (handle.startsWith('@') ? handle : `@${handle}`) : `@${name.toLowerCase().replace(/\s+/g, '')}`,
+      name: displayName,
+      handle: handle ? (handle.startsWith('@') ? handle : `@${handle}`) : `@${displayName.toLowerCase().replace(/\s+/g, '')}`,
       did: `did:rey:0x${randomHex}...AE9`,
       walletAddress: `0x${randomHex}...4F1`,
       reycoinBalance: 250.0, // welcome bonus RYC
@@ -128,7 +211,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
-    // Trigger real Supabase OAuth
     if (import.meta.env.VITE_SUPABASE_URL) {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -137,7 +219,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
     } else {
-      // Fallback
       await new Promise((res) => setTimeout(res, 800));
       const googleUser: UserSession = {
         ...DEFAULT_USER,
@@ -174,13 +255,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Supabase logout warn:', e);
+    }
     setUser(null);
     localStorage.removeItem('reyplace_user_session');
   };
 
   const updateUserBalance = (amount: number) => {
     setUser((prev) => (prev ? { ...prev, reycoinBalance: prev.reycoinBalance + amount } : null));
+  };
+
+  const setLivenessVerified = (verified: boolean) => {
+    setUser((prev) => prev ? {
+      ...prev,
+      livenessVerified: verified,
+      verificationLevel: verified ? 3 : 2
+    } : null);
   };
 
   return (
@@ -194,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithWeb3Wallet,
         logout,
         updateUserBalance,
+        setLivenessVerified,
       }}
     >
       {children}
@@ -208,4 +302,5 @@ export function useAuth() {
   }
   return context;
 }
+
 

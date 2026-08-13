@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, Fingerprint, ScanFace, Mail, Smartphone, Lock, CheckCircle2, Sparkles } from 'lucide-react';
+import { ShieldCheck, Fingerprint, ScanFace, Mail, Smartphone, Lock, CheckCircle2, Sparkles, KeyRound } from 'lucide-react';
 
 interface BiometricPanelProps {
   livenessCompleted: boolean;
-  onOpenLiveness: () => void;
+  onOpenLiveness: (mode?: 'face' | 'fingerprint' | 'webauthn') => void;
   lastValidationDate?: string;
 }
 
@@ -13,7 +13,7 @@ export function BiometricPanel({ livenessCompleted, onOpenLiveness, lastValidati
     { name: 'Email KYC', icon: Mail, status: 'completed' },
     { name: 'Teléfono', icon: Smartphone, status: 'completed' },
     { name: 'Prueba de Vida', icon: ScanFace, status: livenessCompleted ? 'completed' : 'pending' },
-    { name: 'Documento ID', icon: Fingerprint, status: 'locked' }
+    { name: 'WebAuthn 2FA', icon: KeyRound, status: livenessCompleted ? 'completed' : 'pending' }
   ];
 
   const completedCount = steps.filter(s => s.status === 'completed').length;
@@ -83,7 +83,7 @@ export function BiometricPanel({ livenessCompleted, onOpenLiveness, lastValidati
             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest font-mono">Nivel de Seguridad</div>
             <div className={`text-sm font-extrabold flex items-center justify-center gap-1.5 ${livenessCompleted ? 'text-emerald-400' : 'text-cyan-400'}`}>
               <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
-              Nivel {currentLevel} • {livenessCompleted ? 'Avanzado' : 'Intermedio'}
+              Nivel {currentLevel} • {livenessCompleted ? 'Avanzado (Passkey 2FA)' : 'Intermedio'}
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export function BiometricPanel({ livenessCompleted, onOpenLiveness, lastValidati
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
               <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                Estado Biométrico
+                Estado Biométrico ReyID
                 <span className="rainbow-shimmer-stamp text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-bold">
                   <span className="shimmer-text">VERIFIED ID</span>
                 </span>
@@ -103,15 +103,25 @@ export function BiometricPanel({ livenessCompleted, onOpenLiveness, lastValidati
               </p>
             </div>
 
-            {!livenessCompleted && (
+            <div className="flex flex-wrap items-center gap-2">
               <button 
-                onClick={onOpenLiveness}
-                className="neu-button-cyan text-black px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg"
+                onClick={() => onOpenLiveness('webauthn')}
+                className="bg-purple-500 hover:bg-purple-400 text-black px-4 py-2 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
               >
-                <ScanFace className="w-4 h-4" />
-                <span>Validar Liveness</span>
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Probador WebAuthn 2FA</span>
               </button>
-            )}
+
+              {!livenessCompleted && (
+                <button 
+                  onClick={() => onOpenLiveness('face')}
+                  className="neu-button-cyan text-black px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg transition-all"
+                >
+                  <ScanFace className="w-3.5 h-3.5" />
+                  <span>Validar Liveness</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -152,4 +162,5 @@ export function BiometricPanel({ livenessCompleted, onOpenLiveness, lastValidati
     </div>
   );
 }
+
 

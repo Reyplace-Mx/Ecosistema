@@ -10,6 +10,9 @@ export interface ReyIDProfile {
   joinDate: string;
 }
 
+export type UserProfile = ReyIDProfile;
+
+
 export interface SignatureLog {
   id: string;
   action: string;

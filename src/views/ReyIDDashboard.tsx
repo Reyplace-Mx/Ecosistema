@@ -1,6 +1,22 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  RadarChart, 
+  Radar, 
+  PolarGrid, 
+  PolarAngleAxis, 
+  PolarRadiusAxis, 
+  ResponsiveContainer, 
+  Tooltip, 
+  PieChart, 
+  Pie, 
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis
+} from 'recharts';
+import { 
   Shield, 
   Fingerprint, 
   Wallet, 
@@ -40,12 +56,16 @@ import {
   X,
   Activity,
   Check,
-  ScanFace
+  ScanFace,
+  Award,
+  TrendingUp
 } from 'lucide-react';
+
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { LivenessModal } from '../components/LivenessModal';
 import { BiometricPanel } from '../components/BiometricPanel';
+import { checkWebAuthnSupport, registerWebAuthnCredential, authenticateWithWebAuthn } from '../lib/webauthn';
 import { EmergencyAlertsWidget } from '../components/EmergencyAlertsWidget';
 import { BiometricConfigSection } from '../components/BiometricConfigSection';
 import { loginSchema, signupSchema, web3SignatureSchema, LoginFormData, SignupFormData, Web3SignatureFormData } from '../lib/validations';
@@ -148,6 +168,7 @@ export function ReyIDDashboard() {
   // Liveness Modal State
   const [isLivenessModalOpen, setIsLivenessModalOpen] = useState(false);
   const [livenessCompleted, setLivenessCompleted] = useState(false);
+  const [livenessMode, setLivenessMode] = useState<'face' | 'fingerprint' | 'webauthn'>('face');
 
   // Trigger Supabase Sync Helper
   const triggerSupabaseSync = async (actionLabel: string, isCryptoSign = false) => {
@@ -292,39 +313,54 @@ export function ReyIDDashboard() {
     }
 
     setIsScanningBiometric(true);
-    await new Promise((res) => setTimeout(res, 1600));
+    
+    try {
+      const cred = await registerWebAuthnCredential('reyid-user-master', newDeviceName.trim());
 
-    const randomCredId = `cred_rey_0x${Math.random().toString(16).substring(2, 8)}...${Math.random().toString(16).substring(2, 6)}`;
-    const newDev: WebAuthnDevice = {
-      id: `wa_dev_${Date.now()}`,
-      name: newDeviceName.trim(),
-      type: newDeviceType,
-      credentialId: randomCredId,
-      registeredAt: 'Hoy',
-      lastUsedAt: 'Hace un momento',
-      authenticatorAttachment: newDeviceAttachment,
-      status: 'active',
-      algorithm: newDeviceType === 'faceid' ? 'Ed25519' : 'ES256',
-    };
+      const newDev: WebAuthnDevice = {
+        id: `wa_dev_${Date.now()}`,
+        name: newDeviceName.trim(),
+        type: newDeviceType,
+        credentialId: cred.rawId.substring(0, 18) + '...',
+        registeredAt: 'Hoy',
+        lastUsedAt: 'Hace un momento',
+        authenticatorAttachment: newDeviceAttachment,
+        status: 'active',
+        algorithm: newDeviceType === 'faceid' ? 'Ed25519' : 'ES256',
+      };
 
-    setDevices((prev) => [newDev, ...prev]);
-    setIsScanningBiometric(false);
-    setIsAddDeviceModalOpen(false);
-    setNewDeviceName('');
-    toast.success('Dispositivo Registrado', `${newDev.name} vinculado con clave pública WebAuthn FIDO2.`);
-    triggerSupabaseSync('Alta Dispositivo Biométrico WebAuthn');
+      setDevices((prev) => [newDev, ...prev]);
+      setIsAddDeviceModalOpen(false);
+      setNewDeviceName('');
+      toast.success('Clave WebAuthn Creada', `${newDev.name} vinculado mediante hardware biométrico (${cred.authenticatorName}).`);
+      triggerSupabaseSync('Alta Dispositivo Biométrico WebAuthn');
+    } catch (err: any) {
+      toast.error('Error al Registrar', 'No se pudo completar el registro biométrico.');
+    } finally {
+      setIsScanningBiometric(false);
+    }
   };
 
   // Test Biometric Authentication on device
   const handleTestDevice = async (device: WebAuthnDevice) => {
     setTestingDeviceId(device.id);
-    await new Promise((res) => setTimeout(res, 1200));
-    setDevices((prev) =>
-      prev.map((d) => (d.id === device.id ? { ...d, lastUsedAt: 'Ahora mismo' } : d))
-    );
-    setTestingDeviceId(null);
-    toast.success('Verificación Biométrica Exitosa', `Dispositivo: ${device.name}`);
-    triggerSupabaseSync('Prueba Autenticación WebAuthn');
+    try {
+      const result = await authenticateWithWebAuthn(device.credentialId);
+      if (result.success) {
+        setDevices((prev) =>
+          prev.map((d) => (d.id === device.id ? { ...d, lastUsedAt: 'Ahora mismo' } : d))
+        );
+        toast.success(
+          'Firma Biométrica WebAuthn 2FA Confirmada',
+          `Validado con ${result.authenticator}. Hash: ${result.signature.substring(0, 12)}...`
+        );
+        triggerSupabaseSync('Prueba Autenticación WebAuthn 2FA');
+      }
+    } catch (err) {
+      toast.error('Error de Firma', 'Fallo en la prueba biométrica del dispositivo.');
+    } finally {
+      setTestingDeviceId(null);
+    }
   };
 
   // Revoke device handler
@@ -593,8 +629,116 @@ export function ReyIDDashboard() {
             {/* Biometric Progress Panel */}
             <BiometricPanel 
               livenessCompleted={livenessCompleted} 
-              onOpenLiveness={() => setIsLivenessModalOpen(true)} 
+              onOpenLiveness={(mode = 'face') => {
+                setLivenessMode(mode);
+                setIsLivenessModalOpen(true);
+              }} 
             />
+
+            {/* Recharts Verification & Security Trust Profile Chart */}
+            <div className="bg-[#111112] border border-cyan-500/20 rounded-3xl p-6 shadow-xl relative overflow-hidden space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      Análisis de Nivel de Verificación ReyID (Recharts)
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                        Soberano L3
+                      </span>
+                    </h3>
+                    <p className="text-xs text-gray-400 font-mono">Desglose de vectores de confianza e identidad descentralizada</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300 font-mono flex items-center gap-1 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
+                    <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+                    Puntaje Global: <strong className="text-cyan-400 font-bold">{livenessCompleted ? '96/100' : '82/100'}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                {/* Radar Chart for Security Vectors */}
+                <div className="h-64 w-full relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={[
+                      { metric: 'KYC Identidad', score: 95 },
+                      { metric: 'Biometría 3D', score: livenessCompleted ? 100 : 65 },
+                      { metric: 'FIDO2 WebAuthn', score: Math.min(100, devices.length * 30 + 10) },
+                      { metric: 'Reputación Web3', score: 92 },
+                      { metric: 'Firmas Cripto', score: 88 },
+                      { metric: 'Participación', score: 90 },
+                    ]}>
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="metric" stroke="#94a3b8" tick={{ fill: '#cbd5e1', fontSize: 10 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" tick={{ fontSize: 9 }} />
+                      <Radar name="Nivel ReyID" dataKey="score" stroke="#00d2ff" fill="#00d2ff" fillOpacity={0.35} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#00d2ff', borderRadius: '12px', fontSize: '11px', color: '#fff' }} 
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Donut Pie Chart & Verification Metrics */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                    <div className="w-24 h-24 relative shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Confianza Validada', value: livenessCompleted ? 96 : 82 },
+                              { name: 'Pendiente', value: livenessCompleted ? 4 : 18 }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={28}
+                            outerRadius={40}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            <Cell key="cell-0" fill="#00d2ff" />
+                            <Cell key="cell-1" fill="#334155" />
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center font-mono font-black text-xs text-cyan-300">
+                        {livenessCompleted ? '96%' : '82%'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        Acreditación de Ciudadanía Digital
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        Su cuenta posee el nivel <strong className="text-cyan-300 font-mono">NIVEL 3 MÁXIMO</strong> de autenticidad criptográfica respaldada en Firestore & Supabase Auth.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="p-3 bg-black/40 rounded-xl border border-white/10">
+                      <span className="text-gray-400 block text-[10px]">CÁMARA LIVENESS:</span>
+                      <strong className={livenessCompleted ? "text-emerald-400" : "text-amber-400"}>
+                        {livenessCompleted ? 'ACTIVO (100%)' : 'REQUIERE ESCANEO'}
+                      </strong>
+                    </div>
+                    <div className="p-3 bg-black/40 rounded-xl border border-white/10">
+                      <span className="text-gray-400 block text-[10px]">SINCRO FIRESTORE:</span>
+                      <strong className="text-cyan-400">DISPOSITIVOS SINCRO</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
 
             {/* Status Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1380,9 +1524,10 @@ export function ReyIDDashboard() {
       <LivenessModal 
         isOpen={isLivenessModalOpen} 
         onClose={() => setIsLivenessModalOpen(false)}
+        initialMode={livenessMode}
         onSuccess={() => {
           setLivenessCompleted(true);
-          triggerSupabaseSync('Prueba de Vida Exitosa (Liveness)');
+          triggerSupabaseSync('Prueba de Vida / WebAuthn 2FA Exitosa');
         }}
       />
 

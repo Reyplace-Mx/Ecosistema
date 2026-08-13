@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import type { CityAlert, CitySensor } from '../types';
 import { IssueReportModal } from '../components/IssueReportModal';
+import { SmartCityTraffic3DWidget } from '../components/SmartCityTraffic3DWidget';
 
 const MOCK_ALERTS: CityAlert[] = [
   {
@@ -151,6 +152,7 @@ const INFRA_NODES: InfraNode[] = [
 
 export function SmartCityDashboard() {
   const [activeTab, setActiveTab] = useState<'map' | 'analytics' | 'alerts' | 'sensors' | 'reports'>('map');
+  const [mapViewMode, setMapViewMode] = useState<'traffic_3d' | 'hologram_nodes'>('traffic_3d');
   const [mapLayer, setMapLayer] = useState<'all' | 'transport' | 'safety' | 'services'>('all');
   const [selectedNode, setSelectedNode] = useState<InfraNode | null>(null);
 
@@ -239,8 +241,107 @@ export function SmartCityDashboard() {
         </div>
       </header>
 
+      {/* 8 Municipal Smart City Pillars Grid Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-3xl p-4 shadow-sm">
+        <div className="p-3 bg-blue-50 dark:bg-blue-500/5 rounded-2xl border border-blue-200 dark:border-blue-500/10 space-y-1 text-center">
+          <Wifi className="w-5 h-5 text-blue-600 dark:text-cyan-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">1. Fibra & 5G</div>
+          <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">100% Cobertura</span>
+        </div>
+
+        <div className="p-3 bg-amber-50 dark:bg-amber-500/5 rounded-2xl border border-amber-200 dark:border-amber-500/10 space-y-1 text-center">
+          <Activity className="w-5 h-5 text-amber-600 dark:text-amber-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">2. Red Sensores IoT</div>
+          <span className="text-[9px] font-mono text-cyan-600 dark:text-cyan-400 font-bold">1,240 Nodos Active</span>
+        </div>
+
+        <div className="p-3 bg-purple-50 dark:bg-purple-500/5 rounded-2xl border border-purple-200 dark:border-purple-500/10 space-y-1 text-center">
+          <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">3. Centro Datos AI</div>
+          <span className="text-[9px] font-mono text-purple-600 dark:text-purple-400 font-bold">Centro Operativo</span>
+        </div>
+
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-500/5 rounded-2xl border border-emerald-200 dark:border-emerald-500/10 space-y-1 text-center">
+          <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">4. Gobierno Abierto</div>
+          <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">100% Digital</span>
+        </div>
+
+        <div className="p-3 bg-cyan-50 dark:bg-cyan-500/5 rounded-2xl border border-cyan-200 dark:border-cyan-500/10 space-y-1 text-center">
+          <Car className="w-5 h-5 text-cyan-600 dark:text-cyan-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">5. Movilidad Smart</div>
+          <span className="text-[9px] font-mono text-cyan-600 dark:text-cyan-400 font-bold">Semáforos IA</span>
+        </div>
+
+        <div className="p-3 bg-yellow-50 dark:bg-yellow-500/5 rounded-2xl border border-yellow-200 dark:border-yellow-500/10 space-y-1 text-center">
+          <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">6. Smart Grids LED</div>
+          <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">-38% CO2 Emisiones</span>
+        </div>
+
+        <div className="p-3 bg-rose-50 dark:bg-rose-500/5 rounded-2xl border border-rose-200 dark:border-rose-500/10 space-y-1 text-center">
+          <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">7. Alerta Temprana</div>
+          <span className="text-[9px] font-mono text-rose-600 dark:text-rose-400 font-bold">CCTV Reconocimiento</span>
+        </div>
+
+        <div className="p-3 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-200 dark:border-indigo-500/10 space-y-1 text-center">
+          <Send className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mx-auto" />
+          <div className="text-[10px] font-bold text-slate-800 dark:text-white">8. Participación</div>
+          <span className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">Ticket Blockchain</span>
+        </div>
+      </div>
+
+
       {/* Map Tab */}
       {activeTab === 'map' && (
+        <div className="space-y-6">
+          {/* Sub-View Switcher for Map Tab */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-3xl p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                <MapIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Centro de Visualización Geoespacial</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Selecciona el modo de visualización urbana y rastreo de tráfico.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-black/40 p-1.5 rounded-2xl border border-slate-200 dark:border-white/10">
+              <button
+                onClick={() => setMapViewMode('traffic_3d')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  mapViewMode === 'traffic_3d'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Car className="w-4 h-4" />
+                <span>Tráfico 3D & Gemelo Digital (Mapbox / Cesium / OSRM)</span>
+              </button>
+
+              <button
+                onClick={() => setMapViewMode('hologram_nodes')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  mapViewMode === 'hologram_nodes'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Radio className="w-4 h-4" />
+                <span>Nodos Holográficos IoT</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Render 3D Traffic & Digital Twin Widget */}
+          {mapViewMode === 'traffic_3d' && (
+            <SmartCityTraffic3DWidget />
+          )}
+
+          {/* Render Holographic Nodes Map */}
+          {mapViewMode === 'hologram_nodes' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[650px]">
           <div className="lg:col-span-9 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-3xl p-6 shadow-sm relative overflow-hidden flex flex-col">
             <div className="absolute inset-0 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none"></div>
@@ -396,6 +497,8 @@ export function SmartCityDashboard() {
               </div>
             </div>
           </div>
+        </div>
+        )}
         </div>
       )}
 

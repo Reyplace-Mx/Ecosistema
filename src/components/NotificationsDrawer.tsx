@@ -137,7 +137,7 @@ export function NotificationsDrawer({ isOpen, onClose, onNavigate }: Notificatio
           </div>
 
           {/* Notification List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto smooth-scroll overscroll-contain p-4 space-y-3">
             {notifications.length === 0 ? (
               <div className="h-64 flex flex-col items-center justify-center text-center text-gray-500 space-y-3">
                 <Info className="w-10 h-10 text-gray-600" />

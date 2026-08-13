@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Cpu, MessageSquare, ShieldAlert, Briefcase, Rss, Users, 
   GraduationCap, Sparkles, Zap, CheckCircle, Clock, TrendingUp, 
-  BrainCircuit, Bot, Lightbulb, FileText, Lock, Settings
+  BrainCircuit, Bot, Lightbulb, FileText, Lock, Settings, Send,
+  RefreshCw, Terminal, CornerDownLeft
 } from 'lucide-react';
 import type { ReybotInteraction } from '../types';
+import { useToast } from '../context/ToastContext';
+
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'reybot';
+  text: string;
+  timestamp: string;
+  engine?: string;
+}
 
 const MOCK_INTERACTIONS: ReybotInteraction[] = [
   { id: 'int_1', module: 'Soporte Pro', user: 'Juan Pérez', intent: 'Problema con facturación', status: 'resolved', timestamp: 'Hace 5 min' },
@@ -52,9 +62,95 @@ const MODULE_EXPLANATIONS = {
   }
 };
 
+const SAMPLE_PROMPTS = [
+  "¿Cómo puedo verificar mi identidad con ReyID?",
+  "Explícame cómo funciona Reycoin y la Billetera Web3",
+  "¿Cómo reportar una falla urbana con fotos e IA?",
+  "¿Cuáles son los beneficios de la suscripción Pro Business?"
+];
+
 export function ReybotDashboard() {
   const [activeTab, setActiveTab] = useState<keyof typeof MODULE_EXPLANATIONS>('assistant');
   const activeModule = MODULE_EXPLANATIONS[activeTab];
+  const { toast } = useToast();
+
+  const [inputPrompt, setInputPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'msg-init',
+      sender: 'reybot',
+      text: '¡Hola! Soy **Reybot AI**, tu asistente omnipresente en el Ecosistema Digital Reyplace. ¿En qué puedo asistirte hoy?',
+      timestamp: 'Ahora',
+      engine: 'Gemini 3.6 Flash'
+    }
+  ]);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  const handleSendMessage = async (textToSend?: string) => {
+    const promptText = (textToSend || inputPrompt).trim();
+    if (!promptText || isLoading) return;
+
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'user',
+      text: promptText,
+      timestamp: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    if (!textToSend) setInputPrompt('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/reybot-chat', {
+        method: 'POST',
+        headers: { 'Content-[#Type]': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: promptText,
+          moduleContext: activeModule.title,
+          history: messages.slice(-6).map(m => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            content: m.text
+          }))
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.responseText) {
+        const botMsg: ChatMessage = {
+          id: `msg-bot-${Date.now()}`,
+          sender: 'reybot',
+          text: data.responseText,
+          timestamp: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          engine: data.aiEngine || 'Gemini 3.6 Flash'
+        };
+        setMessages(prev => [...prev, botMsg]);
+      } else {
+        throw new Error('Sin respuesta');
+      }
+    } catch (err) {
+      toast.error('Error de Comunicación', 'No se pudo conectar con el motor neural Reybot AI.');
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `msg-err-${Date.now()}`,
+          sender: 'reybot',
+          text: 'Disculpa, ocurrió un inconveniente momentáneo al conectar con el motor neural. Por favor reintenta en breve.',
+          timestamp: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          engine: 'Reybot Error Handler'
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col overflow-y-auto animate-fade-in">
@@ -64,7 +160,7 @@ export function ReybotDashboard() {
             <Cpu className="w-8 h-8 text-cyan-600 dark:text-purple-400" />
             Capa de IA <span className="text-slate-400 dark:text-gray-600 font-medium">/</span> Reybot Completo
           </h1>
-          <p className="text-slate-500 dark:text-gray-400 mt-2 max-w-3xl">Inteligencia artificial ubicua que potencia, protege y asiste en todos los módulos de Reyplace mediante automatización, resúmenes, recomendaciones y seguridad activa.</p>
+          <p className="text-slate-500 dark:text-gray-400 mt-2 max-w-3xl">Inteligencia artificial omnipresente impulsada por Gemini 3.6 Flash que potencia, protege y asiste en todos los módulos de Reyplace mediante automatización, resúmenes, recomendaciones y conversación natural.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-xl p-1.5 shadow-sm">
           {Object.entries(MODULE_EXPLANATIONS).map(([key, mod]) => (
@@ -85,6 +181,116 @@ export function ReybotDashboard() {
           ))}
         </div>
       </header>
+
+      {/* Interactive AI Live Console */}
+      <div className="bg-slate-900/90 dark:bg-[#0c0c0e] border border-cyan-500/30 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+              <Bot className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                Consola Conversacional Reybot AI
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  ONLINE • Gemini 3.6 Flash
+                </span>
+              </h2>
+              <p className="text-xs text-cyan-300 font-mono">Modo activo: {activeModule.title}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setMessages([{
+              id: 'msg-init',
+              sender: 'reybot',
+              text: 'Consola reiniciada. ¿En qué más puedo ayudarte?',
+              timestamp: 'Ahora',
+              engine: 'Gemini 3.6 Flash'
+            }])}
+            className="p-2 rounded-xl text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-xs flex items-center gap-1 cursor-pointer transition-all"
+            title="Reiniciar chat"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Limpiar</span>
+          </button>
+        </div>
+
+        {/* Message Stream Area */}
+        <div className="h-80 overflow-y-auto space-y-3.5 pr-2 mb-4 scrollbar-thin">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
+                  msg.sender === 'user'
+                    ? 'bg-cyan-600 text-white rounded-br-none shadow-lg'
+                    : 'bg-white/10 border border-white/10 text-gray-100 rounded-bl-none shadow-md backdrop-blur-md'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1 text-[10px] font-mono text-gray-300 border-b border-white/10 pb-1">
+                  <span className="font-bold flex items-center gap-1">
+                    {msg.sender === 'user' ? 'Tú (Ciudadano)' : <span className="text-cyan-400 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Reybot AI</span>}
+                  </span>
+                  <span>{msg.timestamp}</span>
+                </div>
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+                {msg.engine && (
+                  <div className="mt-2 text-[9px] font-mono text-cyan-400/80 text-right">
+                    Motor: {msg.engine}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white/10 border border-cyan-500/30 rounded-2xl p-3.5 rounded-bl-none flex items-center gap-2 text-cyan-300 text-xs font-mono">
+                <Sparkles className="w-4 h-4 animate-spin text-cyan-400" />
+                <span>Reybot AI procesando respuesta con Gemini...</span>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
+            <Terminal className="w-3 h-3 text-cyan-400" /> Prompts Rápidos:
+          </span>
+          {SAMPLE_PROMPTS.map((prompt, i) => (
+            <button
+              key={i}
+              onClick={() => handleSendMessage(prompt)}
+              className="text-[11px] bg-white/5 hover:bg-cyan-500/20 text-gray-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/40 rounded-xl px-2.5 py-1 transition-all cursor-pointer truncate max-w-xs"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+
+        {/* Input Bar */}
+        <div className="flex items-center gap-2 bg-black/50 border border-white/15 rounded-2xl p-2 focus-within:border-cyan-500 transition-all">
+          <input
+            type="text"
+            value={inputPrompt}
+            onChange={(e) => setInputPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder={`Pregunta lo que desees a Reybot AI en ${activeModule.title}...`}
+            className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm text-white placeholder-gray-500 px-3"
+          />
+          <button
+            onClick={() => handleSendMessage()}
+            disabled={!inputPrompt.trim() || isLoading}
+            className="neu-button-cyan text-black px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shadow-lg"
+          >
+            <span>Enviar</span>
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
       {/* Explicación de Módulo Activo */}
       <motion.div 

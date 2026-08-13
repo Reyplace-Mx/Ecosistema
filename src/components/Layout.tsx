@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { IntroVideoModal } from './IntroVideoModal';
 import { ThemeSelector } from './ThemeSelector';
 import { CommandPalette } from './CommandPalette';
@@ -33,7 +33,8 @@ import {
   Film,
   Layers,
   Keyboard,
-  ChevronRight
+  ChevronRight,
+  ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -99,6 +100,11 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  
+  // Scroll enhancements state & ref
+  const mainScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const { logout } = useAuth();
   const { toast } = useToast();
@@ -106,6 +112,33 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
   const currentCategory = NAVIGATION.find(group =>
     group.items.some(item => item.name === activeModule)
   )?.category || 'Reyplace';
+
+  // Smooth scroll reset to top whenever activeModule changes
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeModule]);
+
+  // Handle scroll events inside the main content container
+  const handleScroll = () => {
+    if (!mainScrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = mainScrollRef.current;
+    
+    // Calculate progress percentage
+    const totalScroll = scrollHeight - clientHeight;
+    const progress = totalScroll > 0 ? (scrollTop / totalScroll) * 100 : 0;
+    setScrollProgress(Math.min(100, Math.max(0, progress)));
+
+    // Show floating Back-To-Top button if scrolled down more than 280px
+    setShowScrollTop(scrollTop > 280);
+  };
+
+  const scrollToTop = () => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -309,11 +342,40 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
               />
             </div>
           </div>
+
+          {/* Scroll Reading Progress Indicator */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-200 dark:bg-white/5 overflow-hidden pointer-events-none">
+            <div 
+              className="h-full bg-gradient-to-r from-[#00d2ff] via-[#2563eb] to-[#d946ef] transition-all duration-150 ease-out shadow-[0_0_8px_rgba(0,210,255,0.8)]"
+              style={{ width: `${scrollProgress}%` }}
+            />
+          </div>
         </header>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        <div 
+          ref={mainScrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto smooth-scroll relative overscroll-contain"
+        >
           {children}
+
+          {/* Floating Back-To-Top Button */}
+          <AnimatePresence>
+            {showScrollTop && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.7, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.7, y: 15 }}
+                onClick={scrollToTop}
+                title="Volver Arriba"
+                className="fixed bottom-20 lg:bottom-8 right-6 z-40 p-3 rounded-2xl bg-[#061024]/90 dark:bg-[#081226]/95 text-cyan-400 border border-cyan-500/40 shadow-[0_0_25px_rgba(0,210,255,0.35)] hover:border-cyan-300 hover:scale-110 active:scale-95 backdrop-blur-xl transition-all cursor-pointer group flex items-center gap-2"
+              >
+                <ChevronUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
+                <span className="text-xs font-extrabold uppercase font-mono tracking-wider hidden sm:inline pr-1">Arriba</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 

@@ -210,7 +210,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate, onTriggerAction }:
           </div>
 
           {/* List of Results */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto smooth-scroll overscroll-contain p-2 space-y-1">
             {filteredCommands.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-sm">
                 No se encontraron módulos o acciones para <span className="text-white">"{query}"</span>

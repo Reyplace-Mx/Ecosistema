@@ -26,6 +26,81 @@ async function startServer() {
     });
   };
 
+  // API Endpoint: Reybot AI Chat assistant endpoint via Gemini
+  app.post("/api/reybot-chat", async (req, res) => {
+    try {
+      const { prompt, moduleContext = "Reyplace General", history = [] } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ error: "Se requiere un mensaje/prompt" });
+      }
+
+      const ai = getAiClient();
+
+      if (ai) {
+        const systemInstruction = `Eres Reybot AI, el asistente inteligente omnipresente, tutor y guardián autónomo del Ecosistema Digital Reyplace (Conectamos • Innovamos • Transformamos).
+Módulo o contexto de consulta actual: "${moduleContext}".
+Responde con tono profesional, tecnológico, servicial, conciso e innovador en español.
+Proporciona respuestas claras, estructuradas con viñetas o pasos si aplica. Mantén una extensión de 2 a 4 párrafos claros y directos.`;
+
+        const contents = [
+          ...history.map((h: any) => ({
+            role: h.role === 'user' ? 'user' : 'model',
+            parts: [{ text: h.content }]
+          })),
+          {
+            role: 'user',
+            parts: [{ text: prompt }]
+          }
+        ];
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.6-flash",
+          contents: contents as any,
+          config: {
+            temperature: 0.4,
+            systemInstruction,
+          },
+        });
+
+        const responseText = response.text || "No se obtuvo respuesta de Reybot AI.";
+
+        return res.json({
+          responseText,
+          aiEngine: "Gemini 3.6 Flash (Real API)",
+        });
+      } else {
+        // Fallback intelligent response generator
+        await new Promise(r => setTimeout(r, 600));
+        let responseText = `Hola, soy **Reybot AI** (Módulo: ${moduleContext}).\n\n`;
+
+        const lowerPrompt = prompt.toLowerCase();
+
+        if (lowerPrompt.includes("reycoin") || lowerPrompt.includes("pago") || lowerPrompt.includes("wallet")) {
+          responseText += `Reycoin (RYC) es la moneda nativa del ecosistema Reyplace. Puedes realizar pagos instantáneos sin comisiones bancarias, transferir valor entre ciudadanos o hacer staking en la Cúpula Digital para obtener rendimientos anuales.`;
+        } else if (lowerPrompt.includes("reyid") || lowerPrompt.includes("biometria") || lowerPrompt.includes("liveness")) {
+          responseText += `ReyID es tu Identidad Digital Descentralizada (DID). Incorpora prueba de vida 3D (Liveness), passkeys fido2/webauthn y firmas criptográficas avaladas en blockchain. Completa tu validación para acceder a beneficios de nivel Máximo.`;
+        } else if (lowerPrompt.includes("servicios") || lowerPrompt.includes("contratar")) {
+          responseText += `En Servicios Pro puedes contratar profesionales certificados de forma segura mediante Smart Contracts con custodia Escrow. El pago se libera únicamente cuando apruebes el entregable final.`;
+        } else if (lowerPrompt.includes("gobierno") || lowerPrompt.includes("tramite")) {
+          responseText += `El Módulo de Gobierno Digital te permite solicitar licencias, hacer reportes de incidencias urbanas mediante inteligencia artificial fotográfica y emitir tu voto transparente en consultas ciudadanas.`;
+        } else {
+          responseText += `He analizado tu consulta sobre "${prompt}". Como motor de inteligencia omnipresente de Reyplace, estoy optimizado para ayudarte a automatizar tareas, consultar registros en blockchain, gestionar tus finanzas en Reycoin y navegar por todos los módulos del ecosistema.`;
+        }
+
+        return res.json({
+          responseText,
+          aiEngine: "Reybot Neural Motor (Simulado / local)",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error en Reybot Chat API:", error);
+      return res.status(500).json({
+        error: "Error interno en Reybot AI",
+        details: error?.message || String(error)
+      });
+    }
+  });
+
   // API Endpoint: Analyze Infrastructure Issue Photo via Gemini Vision
   app.post("/api/analyze-issue-photo", async (req, res) => {
     try {
