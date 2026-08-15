@@ -399,3 +399,64 @@ export interface InfrastructureNode {
   load: number;
   uptime: string;
 }
+
+export type MochisZone = 
+  | 'zona_centro'
+  | 'plaza_paseo'
+  | 'scally_country'
+  | 'tabachines_fatima'
+  | 'parque_industrial'
+  | 'topolobampo_puerto'
+  | 'valle_del_fuerte'
+  | 'nuevo_horizonte';
+
+export interface MetaMarketplaceItem {
+  id: string;
+  facebookListingId: string;
+  title: string;
+  category: 'agroindustria' | 'gastronomia_mariscos' | 'tecnologia' | 'automotriz_refacciones' | 'servicios_profesionales' | 'retail_moda';
+  businessName: string;
+  zone: MochisZone;
+  zoneLabel: string;
+  addressMochis: string;
+  postalCode: string;
+  priceMXN: number;
+  priceRYC: number;
+  inventoryStock: number;
+  metaSyncStatus: 'synced' | 'pending' | 'in_review' | 'rejected';
+  lastSyncedAt: string;
+  facebookViews: number;
+  marketplaceSaves: number;
+  whatsAppLeads: number;
+  whatsappContactNumber: string;
+  sellerRating: number;
+  isSponsored: boolean;
+  image: string;
+  tags: string[];
+}
+
+export interface MochisZoneAnalytics {
+  zone: MochisZone;
+  name: string;
+  postalCode: string;
+  activeBusinesses: number;
+  fbMarketplaceVolumeMXN: number;
+  demandIndex: number; // 0 - 100
+  topCategory: string;
+  avgConversionRate: number;
+  whatsappEngagement: number;
+  growthMoM: number;
+}
+
+export interface MetaServiceStatus {
+  graphApiConnected: boolean;
+  metaBusinessSuiteId: string;
+  facebookCatalogId: string;
+  whatsappBusinessNumber: string;
+  conversionsApiActive: boolean;
+  metaPixelStatus: 'active' | 'standby' | 'error';
+  lastWebhookSync: string;
+  activeAdCampaignsMochis: number;
+  roiMetaAdsPercent: number;
+}
+

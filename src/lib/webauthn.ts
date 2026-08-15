@@ -3,6 +3,8 @@
  * Supports native FaceID, TouchID, Windows Hello, and FIDO2 Passkeys.
  */
 
+export * from './authn';
+
 export interface WebAuthnCredentialInfo {
   id: string;
   rawId: string;

@@ -12,9 +12,12 @@ import {
   TrendingUp,
   Tag,
   Store,
-  ShieldCheck
+  ShieldCheck,
+  Share2,
+  MapPin
 } from 'lucide-react';
 import type { MarketItem, CartItem, Order } from '../types';
+import { MetaMarketplaceHub } from '../components/MetaMarketplaceHub';
 
 const MOCK_ITEMS: MarketItem[] = [
   {
@@ -91,7 +94,7 @@ const MOCK_ORDERS: Order[] = [
 ];
 
 export function MarketplaceDashboard() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'cart'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'meta_marketplace' | 'cart'>('meta_marketplace');
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col overflow-y-auto">
@@ -101,18 +104,39 @@ export function MarketplaceDashboard() {
             <ShoppingCart className="w-8 h-8 text-cyan-400" />
             Marketplace <span className="text-gray-600 font-medium">/</span> Centro de Comercio
           </h1>
-          <p className="text-gray-400 mt-2">Productos y servicios verificados. Pagos híbridos integrados con Reycoin.</p>
+          <p className="text-gray-400 mt-2">
+            Productos y servicios verificados. Integración con Meta Commerce, Facebook Marketplace Los Mochis y pagos híbridos Reycoin.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button 
+            onClick={() => setActiveTab('meta_marketplace')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'meta_marketplace'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-600/30'
+                : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'
+            }`}
+          >
+            <Share2 className="w-4 h-4 text-cyan-300" />
+            <span>Meta & Facebook Mochis</span>
+          </button>
+
           <button 
             onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'catalog' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'catalog' ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-gray-200'
+            }`}
           >
-            Catálogo
+            Catálogo Web3
           </button>
+
           <button 
             onClick={() => setActiveTab('cart')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'cart' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'cart'
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold'
+                : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'
+            }`}
           >
             <ShoppingCart className="w-4 h-4" />
             <span>Carrito</span>
@@ -124,6 +148,12 @@ export function MarketplaceDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Tab: Meta & Facebook Marketplace Mochis */}
+      {activeTab === 'meta_marketplace' && (
+        <MetaMarketplaceHub />
+      )}
+
 
       {activeTab === 'catalog' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

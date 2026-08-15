@@ -8,19 +8,27 @@ import {
   Settings, 
   ShoppingCart, 
   CheckCircle, 
-  TrendingUp,
-  AlertTriangle,
-  Plus,
-  Box,
-  Truck,
-  Star
+  TrendingUp, 
+  AlertTriangle, 
+  Plus, 
+  Box, 
+  Truck, 
+  Star,
+  Share2,
+  MessageCircle,
+  Zap,
+  Globe,
+  RefreshCw,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import type { BusinessProfile, Branch, InventoryItem } from '../types';
+import { MOCHIS_ZONES_DATA } from '../lib/metaBusinessService';
 
 const MOCK_PROFILE: BusinessProfile = {
   id: 'biz_1',
-  name: 'UrbanTech Solutions',
-  category: 'Tecnología IoT',
+  name: 'UrbanTech Solutions & AgroDigital Mochis',
+  category: 'Tecnología IoT & Agroindustria Sinaloa',
   verificationStatus: 'verified',
   rating: 4.8,
   totalSales: 12500
@@ -29,14 +37,20 @@ const MOCK_PROFILE: BusinessProfile = {
 const MOCK_BRANCHES: Branch[] = [
   {
     id: 'br_1',
-    name: 'Sede Principal',
-    address: 'Av. Tecnológica 124, Zona Norte',
+    name: 'Sede Principal Centro Los Mochis',
+    address: 'Av. Gabriel Leyva #415 Nte., Col. Centro, Los Mochis, Sin. (CP 81200)',
     status: 'active'
   },
   {
     id: 'br_2',
-    name: 'Centro de Distribución',
-    address: 'Parque Industrial Sur, Nave 4',
+    name: 'Sucursal Paseo Los Mochis',
+    address: 'Blvd. Centenario #850 Ote., Plaza Paseo Local 42, Los Mochis, Sin. (CP 81240)',
+    status: 'active'
+  },
+  {
+    id: 'br_3',
+    name: 'Centro Logístico Valle del Fuerte',
+    address: 'Parque Industrial Ecológico Nave 4, Los Mochis, Sin. (CP 81255)',
     status: 'active'
   }
 ];
@@ -44,7 +58,7 @@ const MOCK_BRANCHES: Branch[] = [
 const MOCK_INVENTORY: InventoryItem[] = [
   {
     id: 'inv_1',
-    name: 'Sensor IoT Ambiental v2',
+    name: 'Sensor IoT Ambiental v2 (Monitoreo Riego)',
     sku: 'IOT-ENV-002',
     stock: 45,
     priceRYC: 120,
@@ -52,7 +66,7 @@ const MOCK_INVENTORY: InventoryItem[] = [
   },
   {
     id: 'inv_2',
-    name: 'Módulo de Conectividad LoRa',
+    name: 'Módulo de Conectividad LoRa Agrícola',
     sku: 'LORA-MOD-01',
     stock: 8,
     priceRYC: 85,
@@ -60,7 +74,7 @@ const MOCK_INVENTORY: InventoryItem[] = [
   },
   {
     id: 'inv_3',
-    name: 'Kit Domótica Base',
+    name: 'Kit Domótica Base para Oficinas',
     sku: 'DOM-KIT-B',
     stock: 0,
     priceRYC: 350,
@@ -69,7 +83,18 @@ const MOCK_INVENTORY: InventoryItem[] = [
 ];
 
 export function BusinessDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'inventory'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'meta_sync' | 'inventory'>('overview');
+  const [isSyncingMeta, setIsSyncingMeta] = useState(false);
+  const [metaSyncNotice, setMetaSyncNotice] = useState<string | null>(null);
+
+  const handleManualMetaSync = async () => {
+    setIsSyncingMeta(true);
+    setMetaSyncNotice('Sincronizando inventario con Meta Commerce Manager y Facebook Marketplace Mochis...');
+    await new Promise(r => setTimeout(r, 1000));
+    setIsSyncingMeta(false);
+    setMetaSyncNotice('¡Inventario y precios sincronizados con Meta Graph API v19 (Los Mochis, Sin.)!');
+    setTimeout(() => setMetaSyncNotice(null), 3500);
+  };
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col overflow-y-auto">
@@ -79,23 +104,45 @@ export function BusinessDashboard() {
             <Store className="w-8 h-8 text-cyan-400" />
             Negocios <span className="text-gray-600 font-medium">/</span> Centro de Operaciones
           </h1>
-          <p className="text-gray-400 mt-2">Gestiona tus sucursales, inventario, reportes y configuración.</p>
+          <p className="text-gray-400 mt-2">
+            Gestiona sucursales en Los Mochis (Sinaloa), inventario, sincronización con Meta Business Suite y WhatsApp.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button 
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'overview' ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
           >
             Resumen
           </button>
           <button 
+            onClick={() => setActiveTab('meta_sync')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'meta_sync'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-600/30'
+                : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'
+            }`}
+          >
+            <Share2 className="w-4 h-4 text-cyan-300" />
+            <span>Meta & WhatsApp Sync</span>
+          </button>
+          <button 
             onClick={() => setActiveTab('inventory')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'inventory' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'inventory' ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
           >
             Inventario
           </button>
         </div>
       </header>
+
+      {metaSyncNotice && (
+        <div className="p-3 bg-gradient-to-r from-blue-950 to-cyan-950 border border-cyan-500/40 rounded-2xl text-xs text-cyan-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+            <span>{metaSyncNotice}</span>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -152,11 +199,11 @@ export function BusinessDashboard() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-cyan-400" /> Sucursales
+                  <MapPin className="w-4 h-4 text-cyan-400" /> Sucursales en Los Mochis
                 </h3>
-                <button className="text-xs font-bold text-cyan-400 hover:text-cyan-300">
-                  + Nueva
-                </button>
+                <span className="text-xs font-bold text-cyan-400">
+                  {MOCK_BRANCHES.length} Activas
+                </span>
               </div>
               <div className="space-y-3">
                 {MOCK_BRANCHES.map(branch => (
@@ -182,18 +229,18 @@ export function BusinessDashboard() {
                 </div>
                 <div className="text-3xl font-bold text-white mb-2">24</div>
                 <div className="flex items-center gap-1 text-xs text-green-400">
-                  <TrendingUp className="w-3 h-3" /> +12% vs ayer
+                  <TrendingUp className="w-3 h-3" /> +12% vs ayer en Ahome
                 </div>
               </div>
               <div className="bg-[#111112] border border-white/5 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center gap-2 mb-2 text-gray-400">
-                  <Package className="w-5 h-5" />
-                  <span className="text-xs uppercase font-bold tracking-widest">Envíos Pendientes</span>
+                <div className="flex items-center gap-2 mb-2 text-emerald-400">
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-xs uppercase font-bold tracking-widest">Leads WhatsApp</span>
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">8</div>
-                <button className="text-[10px] text-cyan-400 uppercase font-bold tracking-widest mt-1 hover:text-cyan-300">
-                  Ver Logística
-                </button>
+                <div className="text-3xl font-bold text-white mb-2">18</div>
+                <div className="flex items-center gap-1 text-xs text-emerald-400">
+                  <Zap className="w-3 h-3" /> Desde FB Marketplace Mochis
+                </div>
               </div>
               <div className="bg-[#111112] border border-white/5 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center gap-2 mb-2 text-gray-400">
@@ -207,42 +254,143 @@ export function BusinessDashboard() {
               </div>
             </div>
 
-            <div className="bg-[#111112] border border-white/5 rounded-2xl p-6 shadow-xl h-[340px] flex flex-col">
-              <h3 className="text-sm font-bold text-white mb-4">Integraciones & Configuración</h3>
+            <div className="bg-[#111112] border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">Integraciones de Canal & Meta Suite</h3>
+                <button
+                  onClick={handleManualMetaSync}
+                  disabled={isSyncingMeta}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMeta ? 'animate-spin' : ''}`} />
+                  <span>Sincronizar Todo</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setActiveTab('meta_sync')}
+                  className="bg-[#080809] border border-white/5 hover:border-blue-500/30 rounded-xl p-4 text-left transition-colors flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors">
+                      <Share2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">Meta Business & FB Marketplace</p>
+                      <p className="text-xs text-gray-500">Catálogo activo en Los Mochis</p>
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab('meta_sync')}
+                  className="bg-[#080809] border border-white/5 hover:border-emerald-500/30 rounded-xl p-4 text-left transition-colors flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+                      <MessageCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">WhatsApp Business Cloud API</p>
+                      <p className="text-xs text-gray-500">Webhooks de leads en tiempo real</p>
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                </button>
+
                 <button className="bg-[#080809] border border-white/5 hover:border-white/10 rounded-xl p-4 text-left transition-colors flex items-center justify-between group">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
-                      <Store className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-200">Marketplace Sync</p>
-                      <p className="text-xs text-gray-500">Catálogo sincronizado</p>
-                    </div>
-                  </div>
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                </button>
-                <button className="bg-[#080809] border border-white/5 hover:border-white/10 rounded-xl p-4 text-left transition-colors flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors">
                       <Truck className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-200">Logística Reyplace</p>
-                      <p className="text-xs text-gray-500">Envíos automáticos</p>
+                      <p className="text-sm font-medium text-gray-200">Logística & Envíos Ahome</p>
+                      <p className="text-xs text-gray-500">Cobertura Mochis y Topolobampo</p>
                     </div>
                   </div>
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 </button>
+
                 <button className="bg-[#080809] border border-white/5 hover:border-white/10 rounded-xl p-4 text-left transition-colors flex items-center gap-3 group">
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 group-hover:bg-white/10 transition-colors">
                     <Settings className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-200">Ajustes de Negocio</p>
-                    <p className="text-xs text-gray-500">Impuestos, notificaciones</p>
+                    <p className="text-sm font-medium text-gray-200">Ajustes SAT & Reycoin</p>
+                    <p className="text-xs text-gray-500">Facturación 4.0 y pasarela de cobro</p>
                   </div>
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Meta & WhatsApp Sync Detail View */}
+      {activeTab === 'meta_sync' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-5 h-5 text-blue-400" />
+                  <h2 className="text-base font-bold text-white">Conectores Oficiales Meta & WhatsApp Business</h2>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Integración directa para retroalimentar inventario, precios y campañas en Los Mochis y Valle del Fuerte, Sinaloa.
+                </p>
+              </div>
+
+              <button
+                onClick={handleManualMetaSync}
+                disabled={isSyncingMeta}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-600/30 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMeta ? 'animate-spin' : ''}`} />
+                <span>{isSyncingMeta ? 'Sincronizando...' : 'Forzar Sincronización Graph API'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <Share2 className="w-4 h-4 text-blue-400" /> Facebook Pages & Shop
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                    CONECTADO
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">Página: <strong>Reyplace Comercio Los Mochis (@reyplacemochis)</strong></p>
+                <div className="text-[10px] font-mono text-slate-500">ID de Página: 109283749102938</div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4 text-emerald-400" /> WhatsApp Cloud API
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                    ACTIVO (WABA)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">Línea Oficial: <strong>+52 668 100 9000</strong></p>
+                <div className="text-[10px] font-mono text-slate-500">Plantillas de Respuesta Automática: 14</div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-purple-400" /> Meta Conversions API (CAPI)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                    PIXEL SERVER-SIDE
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">Pixel ID: <strong>928103948571029</strong></p>
+                <div className="text-[10px] font-mono text-slate-500">Eventos de Compra & Leads deduplicados</div>
               </div>
             </div>
           </div>
@@ -257,7 +405,7 @@ export function BusinessDashboard() {
               <div className="hidden sm:block h-4 w-px bg-white/10"></div>
               <span className="text-xs text-gray-500">{MOCK_INVENTORY.length} artículos</span>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity">
+            <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity cursor-pointer">
               <Plus className="w-4 h-4" /> Nuevo Artículo
             </button>
           </div>
@@ -313,7 +461,7 @@ export function BusinessDashboard() {
                       )}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button className="text-xs font-bold text-cyan-400 hover:text-cyan-300">
+                      <button className="text-xs font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer">
                         Editar
                       </button>
                     </td>
@@ -327,3 +475,4 @@ export function BusinessDashboard() {
     </div>
   );
 }
+
