@@ -1,4 +1,7 @@
-export function registerServiceWorker(onOfflineChange?: (isOffline: boolean) => void) {
+export function registerServiceWorker(
+  onOfflineChange?: (isOffline: boolean) => void,
+  onPushNotificationNavigate?: (module: string) => void
+) {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
@@ -9,6 +12,16 @@ export function registerServiceWorker(onOfflineChange?: (isOffline: boolean) => 
         .catch((error) => {
           console.error('[PWA] Error al registrar Service Worker:', error);
         });
+    });
+
+    // Listen for push notifications clicked action navigation
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'NAVIGATE_TO_MODULE') {
+        console.log('[PWA] Navegación solicitada por notificación push:', event.data.module);
+        if (onPushNotificationNavigate) {
+          onPushNotificationNavigate(event.data.module);
+        }
+      }
     });
   }
 

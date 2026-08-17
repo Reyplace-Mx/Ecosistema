@@ -353,6 +353,74 @@ html.light ::-webkit-scrollbar-thumb {
   transition: transform 0.35s ease, filter 0.35s ease;
 }
 
+/* =========================================================
+   DESIGN VARIATIONS & COLOR PRESETS ENGINE
+   ========================================================= */
+
+:root {
+  --primary-preset-color: #00d2ff;
+  --primary-preset-dark: #0284c7;
+  --primary-preset-accent: #2563eb;
+  --primary-preset-glow: rgba(0, 210, 255, 0.45);
+}
+
+/* Background Atmosphere Variants */
+html[data-background-fx="minimal_grid"] .aurora-blobs-layer {
+  display: none !important;
+}
+
+html[data-background-fx="minimal_grid"] body {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+html.light[data-background-fx="minimal_grid"] body {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+}
+
+html[data-background-fx="none"] .aurora-blobs-layer {
+  display: none !important;
+}
+
+/* UI Density Modes */
+html[data-density="compact"] {
+  font-size: 14.5px;
+}
+
+html[data-density="compact"] .p-4 {
+  padding: 0.75rem !important;
+}
+
+html[data-density="compact"] .p-6 {
+  padding: 1rem !important;
+}
+
+html[data-density="compact"] .gap-4 {
+  gap: 0.75rem !important;
+}
+
+html[data-density="compact"] .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+
+/* Dynamic Preset Primary Accent Utilities */
+.text-preset-primary {
+  color: var(--primary-preset-color) !important;
+}
+
+.bg-preset-primary {
+  background-color: var(--primary-preset-color) !important;
+}
+
+.border-preset-primary {
+  border-color: var(--primary-preset-color) !important;
+}
+
+.shadow-preset-glow {
+  box-shadow: 0 0 20px var(--primary-preset-glow) !important;
+}
+
+
 
 
 

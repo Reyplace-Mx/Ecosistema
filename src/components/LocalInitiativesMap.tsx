@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
@@ -23,6 +23,9 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
+const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
+
 export interface LocalInitiative {
   id: string;
   title: string;
@@ -43,6 +46,8 @@ export interface LocalInitiative {
   upvotes: number;
   supervisor: string;
 }
+
+// ... MOCK_INITIATIVES remains same ...
 
 const MOCK_INITIATIVES: LocalInitiative[] = [
   {

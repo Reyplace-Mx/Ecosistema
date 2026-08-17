@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { BusinessProfile, Branch, InventoryItem } from '../types';
 import { MOCHIS_ZONES_DATA } from '../lib/metaBusinessService';
+import { MetaBusinessMetricsView } from '../components/MetaBusinessMetricsView';
 
 const MOCK_PROFILE: BusinessProfile = {
   id: 'biz_1',
@@ -83,7 +84,7 @@ const MOCK_INVENTORY: InventoryItem[] = [
 ];
 
 export function BusinessDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'meta_sync' | 'inventory'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'meta_analytics' | 'meta_sync' | 'inventory'>('overview');
   const [isSyncingMeta, setIsSyncingMeta] = useState(false);
   const [metaSyncNotice, setMetaSyncNotice] = useState<string | null>(null);
 
@@ -105,7 +106,7 @@ export function BusinessDashboard() {
             Negocios <span className="text-gray-600 font-medium">/</span> Centro de Operaciones
           </h1>
           <p className="text-gray-400 mt-2">
-            Gestiona sucursales en Los Mochis (Sinaloa), inventario, sincronización con Meta Business Suite y WhatsApp.
+            Gestiona sucursales en Los Mochis (Sinaloa), inventario, métricas de Meta Business Suite con Recharts y WhatsApp.
           </p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -114,6 +115,17 @@ export function BusinessDashboard() {
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'overview' ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
           >
             Resumen
+          </button>
+          <button 
+            onClick={() => setActiveTab('meta_analytics')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'meta_analytics'
+                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white shadow-lg shadow-blue-600/30'
+                : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-cyan-300" />
+            <span>Métricas Meta Suite (Recharts)</span>
           </button>
           <button 
             onClick={() => setActiveTab('meta_sync')}
@@ -326,6 +338,17 @@ export function BusinessDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tab: Meta Business Suite Metrics with Recharts */}
+      {activeTab === 'meta_analytics' && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <MetaBusinessMetricsView />
+        </motion.div>
       )}
 
       {/* Tab: Meta & WhatsApp Sync Detail View */}

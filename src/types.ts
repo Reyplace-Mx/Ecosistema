@@ -373,8 +373,12 @@ export interface WebAuthnDevice {
   registeredAt: string;
   lastUsedAt: string;
   authenticatorAttachment: 'platform' | 'cross-platform';
-  status: 'active' | 'revoked';
+  status: 'active' | 'revoked' | 'suspended';
   algorithm: 'ES256' | 'Ed25519' | 'RS256';
+  publicKeyFingerprint?: string;
+  aaguid?: string;
+  transports?: ('internal' | 'usb' | 'nfc' | 'ble' | 'hybrid')[];
+  backupState?: boolean;
 }
 
 export type SupabaseSyncState = 'synced' | 'syncing' | 'signing' | 'updated' | 'error';

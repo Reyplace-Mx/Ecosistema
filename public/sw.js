@@ -73,3 +73,91 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// ==========================================================
+// Web Push Notifications & Alerts for Reyplace Ecosystem
+// ==========================================================
+
+// Push Event: Received push payload from server / Cloud messaging
+self.addEventListener('push', (event) => {
+  console.log('[SW Push] Push message received:', event);
+
+  let payload = {
+    title: 'Reyplace Ecosistema',
+    body: 'Nueva actualización en tus módulos suscritos.',
+    icon: '/icon-192.svg',
+    badge: '/icon-192.svg',
+    module: 'smart_city',
+    url: '/'
+  };
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      payload = { ...payload, ...data };
+    } catch {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+
+  const notificationOptions = {
+    body: payload.body,
+    icon: payload.icon || '/icon-192.svg',
+    badge: payload.badge || '/icon-192.svg',
+    vibrate: [100, 50, 100],
+    data: {
+      url: payload.url || '/',
+      module: payload.module || 'smart_city',
+      timestamp: Date.now()
+    },
+    actions: [
+      { action: 'open_module', title: 'Abrir Módulo' },
+      { action: 'dismiss', title: 'Cerrar' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, notificationOptions)
+  );
+});
+
+// Notification Click Event: Focus or Open Window
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW Push] Notification clicked:', event.action, event.notification);
+  event.notification.close();
+
+  if (event.action === 'dismiss') {
+    return;
+  }
+
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({
+            type: 'NAVIGATE_TO_MODULE',
+            module: event.notification.data?.module || 'smart_city'
+          });
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// Push Subscription Change Event
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW Push] Push subscription changed:', event);
+  event.waitUntil(
+    self.registration.pushManager.subscribe(event.oldSubscription.options)
+      .then((newSubscription) => {
+        console.log('[SW Push] Re-subscribed to push manager:', newSubscription.endpoint);
+      })
+  );
+});
+

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { AnimatedCard } from '../components/AnimatedCard';
 import { 
   RadarChart, 
   Radar, 
@@ -68,6 +69,7 @@ import { BiometricPanel } from '../components/BiometricPanel';
 import { checkWebAuthnSupport, registerWebAuthnCredential, authenticateWithWebAuthn } from '../lib/webauthn';
 import { EmergencyAlertsWidget } from '../components/EmergencyAlertsWidget';
 import { BiometricConfigSection } from '../components/BiometricConfigSection';
+import { SecurityKeysManager } from '../components/SecurityKeysManager';
 import { loginSchema, signupSchema, web3SignatureSchema, LoginFormData, SignupFormData, Web3SignatureFormData } from '../lib/validations';
 import type { SignatureLog, WebAuthnDevice, SupabaseSyncState } from '../types';
 import { SupabaseSyncIndicator } from '../components/SupabaseSyncIndicator';
@@ -90,6 +92,10 @@ const INITIAL_WEBAUTHN_DEVICES: WebAuthnDevice[] = [
     authenticatorAttachment: 'platform',
     status: 'active',
     algorithm: 'ES256',
+    publicKeyFingerprint: 'SHA256:7B88A23C910F11AA',
+    aaguid: '00000000-0000-0000-0000-000000000000',
+    transports: ['internal'],
+    backupState: true,
   },
   {
     id: 'wa_dev_2',
@@ -101,6 +107,10 @@ const INITIAL_WEBAUTHN_DEVICES: WebAuthnDevice[] = [
     authenticatorAttachment: 'platform',
     status: 'active',
     algorithm: 'Ed25519',
+    publicKeyFingerprint: 'SHA256:39C1045E994B6621',
+    aaguid: '00000000-0000-0000-0000-000000000000',
+    transports: ['internal', 'hybrid'],
+    backupState: true,
   },
   {
     id: 'wa_dev_3',
@@ -112,6 +122,25 @@ const INITIAL_WEBAUTHN_DEVICES: WebAuthnDevice[] = [
     authenticatorAttachment: 'cross-platform',
     status: 'active',
     algorithm: 'ES256',
+    publicKeyFingerprint: 'SHA256:E01588BA720942FD',
+    aaguid: 'cbfe69d0-cbd9-409b-96e3-d0f510329e50',
+    transports: ['usb', 'nfc'],
+    backupState: false,
+  },
+  {
+    id: 'wa_dev_4',
+    name: 'Windows Hello Laptop (Oficina)',
+    type: 'fingerprint',
+    credentialId: 'cred_rey_0x44fa9...8122',
+    registeredAt: '12 dic 2025',
+    lastUsedAt: '10 ene 2026',
+    authenticatorAttachment: 'platform',
+    status: 'suspended',
+    algorithm: 'RS256',
+    publicKeyFingerprint: 'SHA256:4FA90182C0E51A9B',
+    aaguid: '00000000-0000-0000-0000-000000000000',
+    transports: ['internal'],
+    backupState: false,
   },
 ];
 
@@ -131,12 +160,6 @@ export function ReyIDDashboard() {
 
   // WebAuthn Biometrics State
   const [devices, setDevices] = useState<WebAuthnDevice[]>(INITIAL_WEBAUTHN_DEVICES);
-  const [isAddDeviceModalOpen, setIsAddDeviceModalOpen] = useState(false);
-  const [newDeviceName, setNewDeviceName] = useState('');
-  const [newDeviceType, setNewDeviceType] = useState<'fingerprint' | 'faceid' | 'hardware_key' | 'passkey'>('fingerprint');
-  const [newDeviceAttachment, setNewDeviceAttachment] = useState<'platform' | 'cross-platform'>('platform');
-  const [isScanningBiometric, setIsScanningBiometric] = useState(false);
-  const [testingDeviceId, setTestingDeviceId] = useState<string | null>(null);
 
   // Form State - Login
   const [loginData, setLoginData] = useState<LoginFormData>({
@@ -145,6 +168,30 @@ export function ReyIDDashboard() {
   });
   const [loginErrors, setLoginErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isBiometricLoggingIn, setIsBiometricLoggingIn] = useState(false);
+
+  // Biometric WebAuthn Quick Login Handler
+  const handleBiometricWebAuthnLogin = async () => {
+    setIsBiometricLoggingIn(true);
+    try {
+      const result = await authenticateWithWebAuthn('reyid_master_passkey');
+      if (result.success) {
+        await login('biometric_passkey@reyplace.org');
+        triggerSupabaseSync('Inicio de Sesión WebAuthn Biométrico / Passkey');
+        toast.success(
+          '¡Autenticación Biométrica Exitosa!',
+          `Identidad ReyID verificada con ${result.authenticator}. Llave FIDO2 validada.`
+        );
+        setActiveTab('profile');
+      } else {
+        toast.error('Fallo Biométrico', 'No se pudo verificar la huella o rostro con WebAuthn.');
+      }
+    } catch (err: any) {
+      toast.error('Error WebAuthn', 'Autenticación biométrica cancelada o no disponible.');
+    } finally {
+      setIsBiometricLoggingIn(false);
+    }
+  };
 
   // Form State - Signup
   const [signupData, setSignupData] = useState<SignupFormData>({
@@ -304,79 +351,15 @@ export function ReyIDDashboard() {
     setIsSigning(false);
   };
 
-  // WebAuthn Device Registration Handler
-  const handleRegisterDevice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeviceName.trim()) {
-      toast.error('Nombre Requerido', 'Escriba un nombre para el nuevo dispositivo biométrico.');
-      return;
-    }
-
-    setIsScanningBiometric(true);
-    
-    try {
-      const cred = await registerWebAuthnCredential('reyid-user-master', newDeviceName.trim());
-
-      const newDev: WebAuthnDevice = {
-        id: `wa_dev_${Date.now()}`,
-        name: newDeviceName.trim(),
-        type: newDeviceType,
-        credentialId: cred.rawId.substring(0, 18) + '...',
-        registeredAt: 'Hoy',
-        lastUsedAt: 'Hace un momento',
-        authenticatorAttachment: newDeviceAttachment,
-        status: 'active',
-        algorithm: newDeviceType === 'faceid' ? 'Ed25519' : 'ES256',
-      };
-
-      setDevices((prev) => [newDev, ...prev]);
-      setIsAddDeviceModalOpen(false);
-      setNewDeviceName('');
-      toast.success('Clave WebAuthn Creada', `${newDev.name} vinculado mediante hardware biométrico (${cred.authenticatorName}).`);
-      triggerSupabaseSync('Alta Dispositivo Biométrico WebAuthn');
-    } catch (err: any) {
-      toast.error('Error al Registrar', 'No se pudo completar el registro biométrico.');
-    } finally {
-      setIsScanningBiometric(false);
-    }
-  };
-
-  // Test Biometric Authentication on device
-  const handleTestDevice = async (device: WebAuthnDevice) => {
-    setTestingDeviceId(device.id);
-    try {
-      const result = await authenticateWithWebAuthn(device.credentialId);
-      if (result.success) {
-        setDevices((prev) =>
-          prev.map((d) => (d.id === device.id ? { ...d, lastUsedAt: 'Ahora mismo' } : d))
-        );
-        toast.success(
-          'Firma Biométrica WebAuthn 2FA Confirmada',
-          `Validado con ${result.authenticator}. Hash: ${result.signature.substring(0, 12)}...`
-        );
-        triggerSupabaseSync('Prueba Autenticación WebAuthn 2FA');
-      }
-    } catch (err) {
-      toast.error('Error de Firma', 'Fallo en la prueba biométrica del dispositivo.');
-    } finally {
-      setTestingDeviceId(null);
-    }
-  };
-
-  // Revoke device handler
-  const handleRevokeDevice = (deviceId: string, deviceName: string) => {
-    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
-    toast.info('Dispositivo Revocado', `${deviceName} ha sido desvinculado de ReyID.`);
-    triggerSupabaseSync('Baja Dispositivo WebAuthn');
-  };
-
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6 relative">
       {/* Official Reyplace Background Liquid Blobs Spectrum */}
-      <div className="fixed top-10 right-10 w-[500px] h-[500px] bg-[#00d2ff]/12 blur-[100px] animate-liquid-morph pointer-events-none -z-10" />
-      <div className="fixed top-1/3 left-5 w-[450px] h-[450px] bg-[#d946ef]/10 blur-[110px] animate-liquid-morph-slow pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[#f97316]/10 blur-[90px] animate-liquid-morph pointer-events-none -z-10" />
-      <div className="fixed bottom-20 left-10 w-[450px] h-[450px] bg-[#2563eb]/15 blur-[100px] animate-liquid-morph-slow pointer-events-none -z-10" />
+      <div className="aurora-blobs-layer">
+        <div className="fixed top-10 right-10 w-[500px] h-[500px] bg-[#00d2ff]/12 blur-[100px] animate-liquid-morph pointer-events-none -z-10" />
+        <div className="fixed top-1/3 left-5 w-[450px] h-[450px] bg-[#d946ef]/10 blur-[110px] animate-liquid-morph-slow pointer-events-none -z-10" />
+        <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[#f97316]/10 blur-[90px] animate-liquid-morph pointer-events-none -z-10" />
+        <div className="fixed bottom-20 left-10 w-[450px] h-[450px] bg-[#2563eb]/15 blur-[100px] animate-liquid-morph-slow pointer-events-none -z-10" />
+      </div>
       
       {/* Header */}
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-2">
@@ -456,8 +439,8 @@ export function ReyIDDashboard() {
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
-          <Scan className="w-4 h-4" />
-          Biometría WebAuthn ({devices.length})
+          <KeyRound className="w-4 h-4" />
+          Gestión de Llaves FIDO2 ({devices.filter(d => d.status === 'active').length})
         </button>
 
         <button
@@ -840,157 +823,30 @@ export function ReyIDDashboard() {
         </div>
       )}
 
-      {/* TAB CONTENT 2: Advanced WebAuthn Biometrics Management */}
+      {/* TAB CONTENT 2: Advanced WebAuthn & Security Keys Management */}
       {activeTab === 'webauthn' && (
-        <div className="space-y-6">
-          
-          {/* Section Header Banner */}
-          <div className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-            <div className="space-y-2 relative z-10">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <Scan className="w-6 h-6" />
-                </span>
-                <h2 className="text-xl font-bold text-white">Configuración Avanzada de Biometría WebAuthn</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                  Passkeys FIDO2
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 max-w-2xl">
-                Vincula tus autenticadores de hardware, Touch ID, Face ID y Passkeys criptográficas. Las credenciales se firman localmente en el Enclave Seguro de tu dispositivo y se sincronizan vía Supabase Realtime.
-              </p>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setIsAddDeviceModalOpen(true)}
-              className="px-5 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer shrink-0 z-10"
-            >
-              <Plus className="w-4 h-4" /> Añadir nuevo dispositivo de confianza
-            </motion.button>
-
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-          </div>
-
-          {/* Biometric Devices Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {devices.map((device) => {
-              const isTesting = testingDeviceId === device.id;
-              return (
-                <motion.div
-                  key={device.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-[#111112] border border-white/10 hover:border-cyan-500/40 rounded-2xl p-5 space-y-4 shadow-lg transition-all relative group"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
-                        {device.type === 'fingerprint' && <Fingerprint className="w-6 h-6" />}
-                        {device.type === 'faceid' && <Scan className="w-6 h-6 text-purple-400" />}
-                        {device.type === 'hardware_key' && <KeyRound className="w-6 h-6 text-amber-400" />}
-                        {device.type === 'passkey' && <Smartphone className="w-6 h-6 text-emerald-400" />}
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                          {device.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] font-mono text-gray-500 uppercase">{device.algorithm}</span>
-                          <span className="text-gray-600">•</span>
-                          <span className="text-[10px] font-mono text-cyan-400">{device.authenticatorAttachment}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <span className="flex h-2.5 w-2.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 text-xs font-mono bg-[#080809] p-3 rounded-xl border border-white/5 text-gray-400">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Credencial:</span>
-                      <span className="text-gray-300 font-semibold">{device.credentialId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Registrado:</span>
-                      <span>{device.registeredAt}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Último Acceso:</span>
-                      <span className="text-emerald-400">{device.lastUsedAt}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => handleTestDevice(device)}
-                      disabled={isTesting}
-                      className="flex-1 py-2 px-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/30 text-xs font-bold text-gray-200 hover:text-cyan-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isTesting ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                          <span>Escaneando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Scan className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Probar Biometría</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleRevokeDevice(device.id, device.name)}
-                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors cursor-pointer"
-                      title="Revocar Dispositivo"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Security Features Info Box */}
-          <div className="bg-[#111112] border border-white/5 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-start gap-3">
-              <Cpu className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Aislamiento TPM / Secure Enclave</h4>
-                <p className="text-[11px] text-gray-400 mt-1">Las llaves privadas de autenticación nunca salen del chip de tu dispositivo.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Zero Phishing Guarantee</h4>
-                <p className="text-[11px] text-gray-400 mt-1">WebAuthn valida el origen del dominio impidiendo ataques de suplantación.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Database className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Sincronización Supabase Realtime</h4>
-                <p className="text-[11px] text-gray-400 mt-1">Los registros de claves públicas se actualizan instantáneamente en toda la red.</p>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        <SecurityKeysManager
+          devices={devices}
+          onDevicesChange={setDevices}
+          onTriggerSync={triggerSupabaseSync}
+          onAddAuditLog={(action, module, status) => {
+            const newLog: SignatureLog = {
+              id: `sig_${Date.now()}`,
+              action,
+              module,
+              timestamp: 'Ahora mismo',
+              status,
+              txHash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
+            };
+            setSignatureLogs((prev) => [newLog, ...prev]);
+          }}
+        />
       )}
 
       {/* TAB CONTENT 3: Auth Forms with Zod Validation */}
       {activeTab === 'auth' && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl relative">
+          <AnimatedCard className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl relative">
             
             <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
               <div className="flex gap-2">
@@ -1023,9 +879,43 @@ export function ReyIDDashboard() {
               </div>
             </div>
 
-            {/* Quick Provider Login (Google & Web3 Wallet) */}
+            {/* Quick Provider Login (Biometric Passkey, Google & Web3 Wallet) */}
             <div className="mb-6 pb-6 border-b border-white/10 space-y-3">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Acceso Rápido Vinculado a ReyID</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                <span>Acceso Rápido Vinculado a ReyID</span>
+                <span className="text-[10px] text-cyan-400 font-mono">WebAuthn FIDO2</span>
+              </div>
+
+              {/* Biometric Passkey Hero Button */}
+              <button
+                type="button"
+                onClick={handleBiometricWebAuthnLogin}
+                disabled={isBiometricLoggingIn}
+                className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/80 via-blue-950/70 to-purple-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 border border-cyan-500/40 text-white transition-all shadow-xl shadow-cyan-500/10 flex items-center justify-between group cursor-pointer"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 group-hover:scale-105 transition-transform">
+                    {isBiometricLoggingIn ? (
+                      <RefreshCw className="w-5 h-5 animate-spin text-cyan-300" />
+                    ) : (
+                      <Fingerprint className="w-5 h-5 text-cyan-300" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Iniciar Sesión con Passkey Biométrico</span>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">1-CLICK</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400">Touch ID, Face ID, Windows Hello o Llave de Seguridad</p>
+                  </div>
+                </div>
+
+                <div className="text-cyan-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span>{isBiometricLoggingIn ? 'Escaneando...' : 'Escanear'}</span>
+                  <ScanFace className="w-4 h-4" />
+                </div>
+              </button>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -1047,7 +937,7 @@ export function ReyIDDashboard() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>ReyID con Google Auth</span>
+                  <span>ReyID con Google</span>
                 </button>
 
                 <button
@@ -1298,14 +1188,14 @@ export function ReyIDDashboard() {
               </form>
             )}
 
-          </div>
+          </AnimatedCard>
         </div>
       )}
 
       {/* TAB CONTENT 4: Web3 Signer */}
       {activeTab === 'sign' && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl">
+          <AnimatedCard className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-2">
               <FileSignature className="w-4 h-4 text-cyan-400" /> Firmador Digital Cúpula
             </h3>
@@ -1363,7 +1253,7 @@ export function ReyIDDashboard() {
                 )}
               </button>
             </form>
-          </div>
+          </AnimatedCard>
         </div>
       )}
 
@@ -1371,155 +1261,6 @@ export function ReyIDDashboard() {
       {activeTab === 'config' && (
         <BiometricConfigSection />
       )}
-
-      {/* MODAL: Add New WebAuthn Device */}
-      <AnimatePresence>
-        {isAddDeviceModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#111112] border border-cyan-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden space-y-5"
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                    <Scan className="w-5 h-5" />
-                  </span>
-                  <div>
-                    <h3 className="text-base font-bold text-white">Añadir Nuevo Dispositivo de Confianza</h3>
-                    <p className="text-xs text-gray-400">Registro WebAuthn FIDO2 / Passkey</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsAddDeviceModalOpen(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Form / Biometric Scan Interaction */}
-              <form onSubmit={handleRegisterDevice} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                    Nombre del Dispositivo
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Google Pixel 8 Pro - Touch ID"
-                    value={newDeviceName}
-                    onChange={(e) => setNewDeviceName(e.target.value)}
-                    className="w-full bg-[#080809] border border-white/10 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white font-mono outline-none"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Tipo Biométrico
-                    </label>
-                    <select
-                      value={newDeviceType}
-                      onChange={(e) => setNewDeviceType(e.target.value as any)}
-                      className="w-full bg-[#080809] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white font-mono outline-none focus:border-cyan-500"
-                    >
-                      <option value="fingerprint">Huella Dactilar (Touch ID)</option>
-                      <option value="faceid">Reconocimiento Facial (Face ID)</option>
-                      <option value="hardware_key">Llave de Seguridad (YubiKey)</option>
-                      <option value="passkey">Passkey Multi-dispositivo</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Modalidad
-                    </label>
-                    <select
-                      value={newDeviceAttachment}
-                      onChange={(e) => setNewDeviceAttachment(e.target.value as any)}
-                      className="w-full bg-[#080809] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white font-mono outline-none focus:border-cyan-500"
-                    >
-                      <option value="platform">Incrustado (Platform TPM)</option>
-                      <option value="cross-platform">Llave Externa (USB/NFC)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Animated Biometric Radar / Fingerprint Scan Preview */}
-                <div className="p-6 bg-[#080809] rounded-2xl border border-cyan-500/20 text-center relative overflow-hidden flex flex-col items-center justify-center min-h-[160px]">
-                  {isScanningBiometric ? (
-                    <div className="space-y-3 flex flex-col items-center">
-                      <div className="relative flex items-center justify-center">
-                        <motion.div
-                          animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.8, 0.3] }}
-                          transition={{ duration: 1, repeat: Infinity }}
-                          className="absolute w-20 h-20 rounded-full bg-cyan-500/20 border border-cyan-400 pointer-events-none"
-                        />
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                          className="w-14 h-14 rounded-full border-2 border-dashed border-cyan-400 flex items-center justify-center"
-                        >
-                          <Scan className="w-8 h-8 text-cyan-300" />
-                        </motion.div>
-                      </div>
-                      <p className="text-xs font-mono font-bold text-cyan-300 animate-pulse">
-                        Generando clave pública FIDO2 & Leyendo sensor TPM...
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400">
-                        {newDeviceType === 'fingerprint' && <Fingerprint className="w-7 h-7" />}
-                        {newDeviceType === 'faceid' && <Scan className="w-7 h-7 text-purple-400" />}
-                        {newDeviceType === 'hardware_key' && <KeyRound className="w-7 h-7 text-amber-400" />}
-                        {newDeviceType === 'passkey' && <Smartphone className="w-7 h-7 text-emerald-400" />}
-                      </div>
-                      <p className="text-xs text-gray-300 font-bold">
-                        Sensor Listo para Registro
-                      </p>
-                      <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                        Al presionar el botón, se iniciará la autenticación biométrica en tu hardware.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddDeviceModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-400 transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isScanningBiometric}
-                    className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isScanningBiometric ? (
-                      <span>Registrando...</span>
-                    ) : (
-                      <>
-                        <Scan className="w-4 h-4" />
-                        <span>Escanear & Registrar</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <LivenessModal 
         isOpen={isLivenessModalOpen} 
