@@ -33,6 +33,9 @@ import {
 import type { CityAlert, CitySensor } from '../types';
 import { IssueReportModal } from '../components/IssueReportModal';
 import { SmartCityTraffic3DWidget } from '../components/SmartCityTraffic3DWidget';
+import { CitizenToolsHub } from '../components/CitizenToolsHub';
+import { SmartCitySupabaseManager } from '../components/SmartCitySupabaseManager';
+import { ShieldCheck, Database } from 'lucide-react';
 
 const MOCK_ALERTS: CityAlert[] = [
   {
@@ -151,7 +154,7 @@ const INFRA_NODES: InfraNode[] = [
 ];
 
 export function SmartCityDashboard() {
-  const [activeTab, setActiveTab] = useState<'map' | 'analytics' | 'alerts' | 'sensors' | 'reports'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'analytics' | 'alerts' | 'sensors' | 'reports' | 'tools' | 'supabase_security'>('supabase_security');
   const [mapViewMode, setMapViewMode] = useState<'traffic_3d' | 'hologram_nodes'>('traffic_3d');
   const [mapLayer, setMapLayer] = useState<'all' | 'transport' | 'safety' | 'services'>('all');
   const [selectedNode, setSelectedNode] = useState<InfraNode | null>(null);
@@ -205,36 +208,54 @@ export function SmartCityDashboard() {
             <Building2 className="w-8 h-8 text-blue-600 dark:text-blue-500" />
             Smart City <span className="text-slate-400 dark:text-gray-600 font-medium text-2xl">/ Centro de Control</span>
           </h1>
-          <p className="text-slate-500 dark:text-gray-400 mt-2 font-medium">Monitoreo urbano en tiempo real. Integrado con mapas holográficos, analítica Recharts, reportes blockchain y Reybot.</p>
+          <p className="text-slate-500 dark:text-gray-400 mt-2 font-medium">Monitoreo urbano en tiempo real. Integrado con mapas holográficos, analítica Recharts, reportes blockchain, detector de billetes falsos y herramientas ciudadanas.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-xl p-1.5 shadow-sm">
           <button 
+            onClick={() => setActiveTab('supabase_security')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'supabase_security' 
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-extrabold shadow-md shadow-cyan-500/25 border border-cyan-400' 
+                : 'text-slate-600 dark:text-cyan-400 hover:text-cyan-300'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>Base de Datos & Seguridad Supabase</span>
+          </button>
+          <button 
             onClick={() => setActiveTab('map')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors ${activeTab === 'map' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeTab === 'map' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
           >
             Mapa Holográfico
           </button>
           <button 
+            onClick={() => setActiveTab('tools')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'tools' ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-extrabold shadow-md shadow-emerald-500/20' : 'text-slate-600 dark:text-emerald-400 hover:text-emerald-300'}`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Herramientas Ciudadanas
+          </button>
+          <button 
             onClick={() => setActiveTab('analytics')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors ${activeTab === 'analytics' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeTab === 'analytics' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
           >
             Analítica Recharts
           </button>
           <button 
             onClick={() => setActiveTab('alerts')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors ${activeTab === 'alerts' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeTab === 'alerts' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
           >
             Alertas & Reybot
           </button>
           <button 
             onClick={() => setActiveTab('sensors')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors ${activeTab === 'sensors' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeTab === 'sensors' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
           >
             Sensores IoT
           </button>
           <button 
             onClick={() => setActiveTab('reports')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'}`}
           >
             Reportes Ciudadanos
           </button>
@@ -823,6 +844,16 @@ export function SmartCityDashboard() {
               </div>
            </div>
         </div>
+      )}
+
+      {/* Consola de Gestión: Base de Datos y Seguridad Supabase Smart City Los Mochis */}
+      {activeTab === 'supabase_security' && (
+        <SmartCitySupabaseManager />
+      )}
+
+      {/* Herramientas Ciudadanas: Detector de Billetes Falsos, Decibelímetro, CFDI SAT */}
+      {activeTab === 'tools' && (
+        <CitizenToolsHub />
       )}
 
       {/* Modal Reporte Rápido desde Mapa */}

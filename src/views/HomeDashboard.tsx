@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { IntroVideoModal } from '../components/IntroVideoModal';
 import { WelcomeHero } from '../components/WelcomeHero';
+import { HUDWidgetSystem } from '../components/HUDWidgetSystem';
 import brandBanner from '../assets/images/reyplace_brand_banner_1786197069951.jpg';
 import logoBadge from '../assets/images/reyplace_logo_badge_1786197084782.jpg';
 import { 
@@ -33,6 +34,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { Interactive3DUniverse } from '../components/Interactive3DUniverse';
+import { RecentActivityLog } from '../components/RecentActivityLog';
 
 interface HomeDashboardProps {
   onNavigate?: (module: string) => void;
@@ -72,6 +75,9 @@ export function HomeDashboard({ onNavigate }: HomeDashboardProps) {
       {/* Hero de Bienvenida (Pantalla Inicial) */}
       <WelcomeHero onNavigate={onNavigate} onOpenVideo={() => setIsVideoOpen(true)} />
 
+      {/* Universo WebGL 3D Interactivo */}
+      <Interactive3DUniverse />
+
       {/* Header Inteligente */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-[#111112] p-4 sm:p-6 rounded-2xl border border-white/5 shadow-xl">
         <div>
@@ -96,6 +102,9 @@ export function HomeDashboard({ onNavigate }: HomeDashboardProps) {
           </button>
         </div>
       </header>
+
+      {/* HUD Widget System with Framer Motion Auto-Stacking on Mobile & Pin Reordering */}
+      <HUDWidgetSystem onNavigate={onNavigate} />
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6">
         
@@ -269,6 +278,9 @@ export function HomeDashboard({ onNavigate }: HomeDashboardProps) {
               </motion.button>
             </div>
           </div>
+
+          {/* Registro de Actividad Reciente ReyID (Últimas 5 Autenticaciones Exitosas) */}
+          <RecentActivityLog onNavigateToReyID={() => onNavigate && onNavigate('ReyID & Usuarios')} />
 
         </div>
 

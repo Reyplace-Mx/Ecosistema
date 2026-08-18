@@ -6,6 +6,7 @@ interface AnimatedCardProps {
   children: React.ReactNode;
   className?: string;
   id?: string;
+  key?: string | number;
 }
 
 export function AnimatedCard({ children, className = '', id }: AnimatedCardProps) {
@@ -17,7 +18,7 @@ export function AnimatedCard({ children, className = '', id }: AnimatedCardProps
       animate="visible"
       layout
       transition={cardLayoutTransition}
-      className={className}
+      className={`cyber-depth-field ${className}`}
     >
       {children}
     </motion.div>

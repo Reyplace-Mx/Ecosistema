@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Calendar, 
@@ -14,10 +14,46 @@ import {
   Coins,
   ShieldCheck,
   ChevronRight,
-  MapPin
+  MapPin,
+  QrCode,
+  Share2,
+  Copy,
+  Check,
+  Lock,
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { ReyIDPublicQRModal } from '../components/ReyIDPublicQRModal';
 
 export function ProfessionalProfile() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+
+  // Profile data fallback
+  const profileData = {
+    name: user?.name || 'Alex Vanguard',
+    handle: user?.handle || '@alexvanguard',
+    did: user?.did || 'did:rey:0x7aF982ef91b2c41893c8340d91a92182b3A1',
+    walletAddress: user?.walletAddress || '0x7aF982...3b9',
+    email: user?.email || 'contacto.reyplace@gmail.com',
+    role: user?.role || 'Consultor de Arquitectura Web3 & Smart Contracts',
+    kycStatus: user?.kycStatus || 'verified',
+  };
+
+  const publicProfileUrl = `${window.location.origin}/#id/${profileData.handle.replace('@', '')}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(publicProfileUrl);
+    setIsCopiedLink(true);
+    toast.success('Enlace Copiado', 'Enlace a tu perfil ReyID copiado al portapapeles.');
+    setTimeout(() => setIsCopiedLink(false), 2500);
+  };
+
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-slate-50 dark:bg-[#080809] animate-fade-in relative">
       
@@ -38,7 +74,7 @@ export function ProfessionalProfile() {
               <div className="w-full h-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                 <img 
                   src="https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1000&auto=format&fit=crop" 
-                  alt="Alex Vanguard" 
+                  alt={profileData.name} 
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   referrerPolicy="no-referrer"
                 />
@@ -51,21 +87,30 @@ export function ProfessionalProfile() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                    Alex Vanguard
+                    {profileData.name}
                     <ShieldCheck className="w-6 h-6 text-cyan-600 dark:text-cyan-400" title="Perfil Verificado por Cúpula" />
                   </h1>
                   <p className="text-lg text-slate-600 dark:text-cyan-400 font-medium mt-1">
-                    Consultor de Arquitectura Web3 & Smart Contracts
+                    {profileData.role}
                   </p>
                 </div>
                 
                 {/* Actions */}
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto shrink-0">
-                  <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-cyan-600/20">
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto shrink-0">
+                  <button 
+                    onClick={() => setIsQRModalOpen(true)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold rounded-xl transition-all shadow-lg shadow-cyan-500/25 border border-cyan-400/50 cursor-pointer"
+                    title="Generar y Compartir Código QR Único ReyID"
+                  >
+                    <QrCode className="w-5 h-5 text-black" />
+                    <span>Compartir QR ReyID</span>
+                  </button>
+
+                  <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-cyan-600/20 cursor-pointer">
                     <Calendar className="w-5 h-5" />
                     <span>Agendar cita</span>
                   </button>
-                  <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl font-bold transition-colors">
+                  <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl font-bold transition-colors cursor-pointer">
                     <MessageSquare className="w-5 h-5" />
                     <span>Mensaje</span>
                   </button>
@@ -82,6 +127,9 @@ export function ProfessionalProfile() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-slate-400" /> Respuesta usual: &lt; 2 horas
+                </span>
+                <span className="flex items-center gap-1.5 font-mono text-xs text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                  DID: {profileData.did.slice(0, 18)}...
                 </span>
               </div>
             </div>
@@ -243,6 +291,87 @@ export function ProfessionalProfile() {
           {/* Right Column (Sidebar) */}
           <div className="space-y-6">
             
+            {/* Tarjeta de Identidad & Código QR ReyID Público */}
+            <div className="bg-gradient-to-br from-[#0c121e] via-[#090d15] to-[#04060a] rounded-3xl p-6 shadow-xl border border-cyan-500/30 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs uppercase tracking-wider font-bold text-white">Credencial ReyID</h3>
+                    <p className="text-[10px] text-cyan-400 font-mono">Identidad Criptográfica Pública</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  FIDO2 L3
+                </span>
+              </div>
+
+              {/* QR Code Preview Box */}
+              <div className="bg-slate-950/80 rounded-2xl p-4 border border-white/10 flex flex-col items-center justify-center my-4 group relative">
+                <div className="p-2.5 bg-white rounded-xl shadow-md transition-transform group-hover:scale-105">
+                  <QRCodeCanvas
+                    value={publicProfileUrl}
+                    size={140}
+                    level="H"
+                    marginSize={1}
+                  />
+                </div>
+                <div className="mt-3 text-center w-full">
+                  <p className="text-[11px] font-bold text-white">{profileData.name}</p>
+                  <p className="text-[10px] font-mono text-cyan-400">{profileData.handle}</p>
+                  <p className="text-[9px] font-mono text-gray-500 truncate mt-1">{profileData.did}</p>
+                </div>
+              </div>
+
+              {/* Security & Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setIsQRModalOpen(true)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs uppercase font-mono flex items-center justify-center gap-2 transition-all shadow-md shadow-cyan-500/20 cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>Personalizar & Exportar QR</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleCopyLink}
+                    className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isCopiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-cyan-400" />}
+                    <span>{isCopiedLink ? 'Copiado' : 'Copiar URL'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({
+                          title: `ReyID: ${profileData.name}`,
+                          text: `Verifica mi identidad ReyID descentralizada`,
+                          url: publicProfileUrl,
+                        });
+                      } else {
+                        handleCopyLink();
+                      }
+                    }}
+                    className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Compartir</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-400">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-emerald-400" /> Cifrado ZK
+                </span>
+                <span className="text-cyan-400/80">W3C DID Standard</span>
+              </div>
+            </div>
+
             {/* Integración Reycoin & Precios */}
             <div className="bg-gradient-to-b from-cyan-900 to-[#111112] rounded-3xl p-6 shadow-xl border border-cyan-500/20 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -337,6 +466,13 @@ export function ProfessionalProfile() {
         </div>
 
       </div>
+
+      {/* Modal Seguro de Código QR ReyID Público */}
+      <ReyIDPublicQRModal 
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
+        user={profileData}
+      />
     </div>
   );
 }

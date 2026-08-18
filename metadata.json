@@ -1,6 +1,6 @@
 {
   "name": "Reyplace",
   "description": "Ecosistema digital modular: ReyID (WebAuthn), Smart City 3D (CesiumJS & OSRM), Marketplace Web3, Meta Business Suite & Facebook Marketplace integrado para Los Mochis, Sinaloa, México.",
-  "requestFramePermissions": ["camera", "geolocation"],
+  "requestFramePermissions": ["camera", "geolocation", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

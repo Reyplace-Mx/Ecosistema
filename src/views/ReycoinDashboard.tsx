@@ -7,15 +7,19 @@ import {
   ArrowUpRight, 
   ArrowDownRight, 
   FileCode2, 
-  History,
+  History, 
   ShieldCheck,
   Zap,
   TrendingUp,
   CreditCard,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Fingerprint,
+  Eye
 } from 'lucide-react';
 import type { WalletData, Transaction, SmartContract } from '../types';
+import { useBiometricStore } from '../store/useBiometricStore';
+import { useToast } from '../context/ToastContext';
 
 const MOCK_WALLET: WalletData = {
   address: '0x7F4...3A9B',
@@ -91,6 +95,20 @@ const MOCK_CONTRACTS: SmartContract[] = [
 
 export function ReycoinDashboard() {
   const [activeTab, setActiveTab] = useState<'wallet' | 'transactions' | 'contracts'>('wallet');
+  const { requestVerification } = useBiometricStore();
+  const toast = useToast();
+
+  const handleCriticalAction = (action: string, amount: string) => {
+    requestVerification({
+      title: `Autorización Biométrica: ${action}`,
+      subtitle: `Validación de clave privada Web3 y firma de ${amount} RYC con ZKP`,
+      actionBadge: 'Transacción Web3 Protegida',
+      type: 'retina',
+      onSuccess: () => {
+        toast.success(`Operación Exitosa: ${action}`, `Se ha ejecutado la transferencia de ${amount} RYC con firma biométrica.`);
+      }
+    });
+  };
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col overflow-y-auto">
@@ -181,29 +199,41 @@ export function ReycoinDashboard() {
             <div className="bg-[#111112] border border-white/5 rounded-2xl p-6 shadow-xl">
                <h3 className="text-sm font-bold text-white mb-6">Acciones Rápidas</h3>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                 <button className="bg-[#080809] border border-white/5 hover:border-amber-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group">
+                 <button 
+                   onClick={() => handleCriticalAction('Recarga de Saldo', '250')}
+                   className="bg-[#080809] border border-white/5 hover:border-amber-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                 >
                     <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <ArrowDownRight className="w-6 h-6" />
                     </div>
                     <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Recargar</span>
                  </button>
-                 <button className="bg-[#080809] border border-white/5 hover:border-amber-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group">
+                 <button 
+                   onClick={() => handleCriticalAction('Transferencia RYC', '500')}
+                   className="bg-[#080809] border border-white/5 hover:border-amber-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                 >
                     <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <ArrowUpRight className="w-6 h-6" />
                     </div>
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Enviar</span>
+                    <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Enviar (Bio)</span>
                  </button>
-                 <button className="bg-[#080809] border border-white/5 hover:border-cyan-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group">
+                 <button 
+                   onClick={() => handleCriticalAction('Bridge Interoperable Off-chain / Web3', '1,000')}
+                   className="bg-[#080809] border border-white/5 hover:border-cyan-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                 >
                     <div className="w-12 h-12 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <ArrowRightLeft className="w-6 h-6" />
                     </div>
                     <span className="text-xs font-bold text-gray-300 uppercase tracking-widest text-center">Bridge<br/><span className="text-[9px] text-gray-500">(Int ↔ Web3)</span></span>
                  </button>
-                 <button className="bg-[#080809] border border-white/5 hover:border-white/20 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group">
-                    <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                 <button 
+                   onClick={() => handleCriticalAction('Retiro a Cuenta Bancaria', '750')}
+                   className="bg-[#080809] border border-white/5 hover:border-rose-500/30 rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                 >
+                    <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 group-hover:text-rose-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <CreditCard className="w-6 h-6" />
                     </div>
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Retirar</span>
+                    <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Retirar (Bio)</span>
                  </button>
                </div>
             </div>

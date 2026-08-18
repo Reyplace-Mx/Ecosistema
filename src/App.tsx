@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Layout } from './components/Layout';
 import { ModuleSkeleton } from './components/ModuleSkeleton';
 import { useThemeStore } from './store/useThemeStore';
+import { BackgroundFxManager } from './components/BackgroundFxManager';
 import { registerServiceWorker } from './registerSW';
 import { WifiOff, Download, Sparkles } from 'lucide-react';
 import { useToast } from './context/ToastContext';
@@ -133,7 +134,9 @@ export default function App() {
   };
 
   return (
-    <Layout activeModule={activeModule} onModuleChange={setActiveModule}>
+    <>
+      <BackgroundFxManager />
+      <Layout activeModule={activeModule} onModuleChange={setActiveModule}>
       {/* Offline Status Banner */}
       <AnimatePresence>
         {isOffline && (
@@ -183,6 +186,7 @@ export default function App() {
         </AnimatePresence>
       </Suspense>
     </Layout>
+    </>
   );
 }
 

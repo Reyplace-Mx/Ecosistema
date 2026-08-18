@@ -73,6 +73,8 @@ import { SecurityKeysManager } from '../components/SecurityKeysManager';
 import { loginSchema, signupSchema, web3SignatureSchema, LoginFormData, SignupFormData, Web3SignatureFormData } from '../lib/validations';
 import type { SignatureLog, WebAuthnDevice, SupabaseSyncState } from '../types';
 import { SupabaseSyncIndicator } from '../components/SupabaseSyncIndicator';
+import { ActivityStream } from '../components/ActivityStream';
+import { RecentActivityLog } from '../components/RecentActivityLog';
 
 const INITIAL_LOGS: SignatureLog[] = [
   { id: 'sig_1', action: 'Contrato de Arrendamiento', module: 'Smart City', timestamp: 'Hace 2 horas', status: 'confirmed', txHash: '0x8f...1c4' },
@@ -148,7 +150,7 @@ export function ReyIDDashboard() {
   const { user, isLoggedIn, login, signup, loginWithGoogle, loginWithWeb3Wallet, logout } = useAuth();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'webauthn' | 'config' | 'auth' | 'sign'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'webauthn' | 'config' | 'auth' | 'sign' | 'activity'>('profile');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   // Supabase Sync Indicator State
@@ -477,6 +479,18 @@ export function ReyIDDashboard() {
         >
           <FileSignature className="w-4 h-4" />
           Firmador Web3
+        </button>
+
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === 'activity'
+              ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
+              : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          Flujo de Actividad & Tráfico
         </button>
       </div>
 
@@ -1254,6 +1268,14 @@ export function ReyIDDashboard() {
               </button>
             </form>
           </AnimatedCard>
+        </div>
+      )}
+
+      {/* TAB CONTENT: Activity Stream */}
+      {activeTab === 'activity' && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <RecentActivityLog />
+          <ActivityStream />
         </div>
       )}
 

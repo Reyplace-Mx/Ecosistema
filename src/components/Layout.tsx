@@ -6,6 +6,10 @@ import { CommandPalette } from './CommandPalette';
 import { NotificationsDrawer } from './NotificationsDrawer';
 import { UserProfilePopover } from './UserProfilePopover';
 import { ShortcutsModal } from './ShortcutsModal';
+import { AntiTheftLockModal } from './AntiTheftLockModal';
+import { BiometricVerificationOverlay } from './BiometricVerificationOverlay';
+import { useSecurityStore } from '../store/useSecurityStore';
+import { useBiometricStore } from '../store/useBiometricStore';
 import logoBadge from '../assets/images/reyplace_logo_badge_1786197084782.jpg';
 import {
   Fingerprint,
@@ -34,7 +38,8 @@ import {
   Layers,
   Keyboard,
   ChevronRight,
-  ChevronUp
+  ChevronUp,
+  GripVertical
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -94,12 +99,71 @@ const NAVIGATION = [
 ];
 
 export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleChange }: LayoutProps) {
+  const { cupulaActive, securityScore } = useSecurityStore();
+  const { requestVerification } = useBiometricStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  // Drag and drop navigation order state
+  const [navGroups, setNavGroups] = useState(() => {
+    try {
+      const saved = localStorage.getItem('reyplace_nav_order');
+      if (saved) {
+        const orderMap = JSON.parse(saved);
+        return NAVIGATION.map(group => ({
+          ...group,
+          items: [...group.items].sort((a, b) => {
+            const orderA = orderMap[group.category]?.indexOf(a.name) ?? 999;
+            const orderB = orderMap[group.category]?.indexOf(b.name) ?? 999;
+            return orderA - orderB;
+          })
+        }));
+      }
+    } catch (e) {
+      // fallback
+    }
+    return NAVIGATION;
+  });
+
+  const [draggedItem, setDraggedItem] = useState<{ category: string; name: string } | null>(null);
+
+  const handleDragStart = (category: string, name: string) => {
+    setDraggedItem({ category, name });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (targetCategory: string, targetName: string) => {
+    if (!draggedItem || draggedItem.category !== targetCategory) return;
+
+    const updated = navGroups.map(group => {
+      if (group.category !== targetCategory) return group;
+      const items = [...group.items];
+      const dragIndex = items.findIndex(i => i.name === draggedItem.name);
+      const dropIndex = items.findIndex(i => i.name === targetName);
+      if (dragIndex === -1 || dropIndex === -1) return group;
+
+      const [removed] = items.splice(dragIndex, 1);
+      items.splice(dropIndex, 0, removed);
+      return { ...group, items };
+    });
+
+    setNavGroups(updated);
+    setDraggedItem(null);
+
+    const orderMap: Record<string, string[]> = {};
+    updated.forEach(g => {
+      orderMap[g.category] = g.items.map(i => i.name);
+    });
+    localStorage.setItem('reyplace_nav_order', JSON.stringify(orderMap));
+    toast.success('Orden de Módulos Guardado', 'Tu preferencia de navegación ha sido guardada.');
+  };
   
   // Scroll enhancements state & ref
   const mainScrollRef = useRef<HTMLDivElement>(null);
@@ -210,22 +274,36 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-          {NAVIGATION.map((group) => (
+          <div className="px-3 text-[10px] text-gray-400 font-mono italic">
+            💡 Arrastra y suelta elementos para reordenar
+          </div>
+          {navGroups.map((group) => (
             <div key={group.category} className="space-y-1">
               <div className="px-3 mb-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">{group.category}</div>
               {group.items.map((item) => (
-                <button
+                <div
                   key={item.name}
-                  onClick={() => onModuleChange?.(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 cursor-pointer ${
+                  draggable
+                  onDragStart={() => handleDragStart(group.category, item.name)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(group.category, item.name)}
+                  className={`group relative flex items-center justify-between w-full rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
                     activeModule === item.name
                       ? 'bg-cyan-500/10 dark:bg-white/5 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 dark:border-white/10 shadow-sm dark:shadow-[0_0_8px_rgba(6,182,212,0.1)] font-medium'
                       : 'text-slate-600 dark:text-gray-500 hover:text-slate-900 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-white/5'
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 ${activeModule === item.name ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-gray-500'}`} />
-                  <span className={activeModule === item.name ? 'font-medium' : ''}>{item.name}</span>
-                </button>
+                  <button
+                    onClick={() => onModuleChange?.(item.name)}
+                    className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm text-left cursor-pointer"
+                  >
+                    <item.icon className={`w-4 h-4 shrink-0 ${activeModule === item.name ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-gray-500'}`} />
+                    <span className={`truncate ${activeModule === item.name ? 'font-medium' : ''}`}>{item.name}</span>
+                  </button>
+                  <div className="pr-2 opacity-0 group-hover:opacity-65 transition-opacity cursor-grab text-gray-400">
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </div>
+                </div>
               ))}
             </div>
           ))}
@@ -300,7 +378,41 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
 
             <ThemeSelector />
 
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] uppercase font-bold tracking-widest border border-cyan-500/20">
+            {/* WebGL Biometric Verification Trigger Badge */}
+            <button
+              onClick={() => {
+                requestVerification({
+                  title: 'Verificación Biométrica WebGL',
+                  subtitle: 'Demostración en vivo de escaneo de Retina 3D y Huella Dactilar Criptográfica',
+                  actionBadge: 'FIDO2 / ZKP Enclave',
+                  type: 'retina'
+                });
+              }}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold tracking-wide transition-all border cursor-pointer bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+              title="Iniciar Verificación Biométrica WebGL"
+            >
+              <Fingerprint className="w-3.5 h-3.5 text-cyan-500 animate-pulse" />
+              <span>ESCÁNER BIOMÉTRICO</span>
+            </button>
+
+            {/* Cúpula Security Dome Shield Status Badge */}
+            <button
+              onClick={() => onModuleChange?.('Cúpula Digital')}
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold tracking-wide transition-all border cursor-pointer ${
+                cupulaActive
+                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.15)]'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+              }`}
+              title="Cúpula de Seguridad: Siempre Activa"
+            >
+              <Shield className={`w-3.5 h-3.5 ${cupulaActive ? 'text-rose-500 animate-pulse' : 'text-amber-500'}`} />
+              <span>CÚPULA 24/7</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 bg-rose-500/20 rounded-md text-rose-500 font-bold">
+                {securityScore}%
+              </span>
+            </button>
+
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] uppercase font-bold tracking-widest border border-cyan-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse"></span>
               <span>REYCOIN V2</span>
             </div>
@@ -379,101 +491,157 @@ export function Layout({ children, activeModule = 'ReyID & Usuarios', onModuleCh
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0c0c0d]/95 backdrop-blur-lg border-t border-white/10 z-30 flex items-center justify-around px-2">
+      {/* Mobile Bottom Navigation Bar (Floating Ergonomic Glass Dock) */}
+      <div className="lg:hidden fixed bottom-3 left-3 right-3 h-16 bg-[#0c0c0d]/90 dark:bg-[#060810]/95 backdrop-blur-xl border border-white/10 dark:border-cyan-500/20 rounded-2xl z-40 flex items-center justify-around px-2 shadow-2xl shadow-black/80 safe-bottom-dock">
         <button
           onClick={() => onModuleChange?.('Inicio')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors cursor-pointer ${
-            activeModule === 'Inicio' ? 'text-cyan-400 font-bold' : 'text-gray-400 hover:text-white'
+          className={`flex flex-col items-center justify-center min-w-[56px] py-1 gap-1 text-[10px] font-bold tracking-tight transition-all duration-200 cursor-pointer rounded-xl btn-tactile ${
+            activeModule === 'Inicio' 
+              ? 'text-cyan-400 bg-cyan-500/15 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.25)]' 
+              : 'text-slate-400 dark:text-gray-400 hover:text-white'
           }`}
         >
-          <Home className="w-5 h-5" />
+          <Home className="w-4.5 h-4.5" />
           <span>Inicio</span>
         </button>
 
         <button
           onClick={() => onModuleChange?.('ReyID & Usuarios')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors cursor-pointer ${
-            activeModule === 'ReyID & Usuarios' ? 'text-cyan-400 font-bold' : 'text-gray-400 hover:text-white'
+          className={`flex flex-col items-center justify-center min-w-[56px] py-1 gap-1 text-[10px] font-bold tracking-tight transition-all duration-200 cursor-pointer rounded-xl btn-tactile ${
+            activeModule === 'ReyID & Usuarios' 
+              ? 'text-cyan-400 bg-cyan-500/15 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.25)]' 
+              : 'text-slate-400 dark:text-gray-400 hover:text-white'
           }`}
         >
-          <Fingerprint className="w-5 h-5" />
+          <Fingerprint className="w-4.5 h-4.5" />
           <span>ReyID</span>
         </button>
 
+        {/* Central Action Button: Command Palette */}
         <button
           onClick={() => setIsCommandPaletteOpen(true)}
-          className="flex flex-col items-center gap-1 text-[10px] text-cyan-400 font-bold p-2 bg-cyan-500/20 border border-cyan-500/30 rounded-2xl -mt-5 shadow-lg shadow-cyan-500/20 cursor-pointer"
+          className="flex flex-col items-center justify-center w-12 h-12 text-cyan-300 font-bold bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl -mt-6 shadow-xl shadow-cyan-500/30 border border-white/20 hover:scale-105 active:scale-95 transition-all cursor-pointer btn-tactile"
+          title="Buscar en el Ecosistema (⌘K)"
         >
-          <Search className="w-5 h-5" />
-          <span className="text-[9px]">⌘K</span>
+          <Search className="w-5 h-5 text-black" />
+          <span className="text-[8px] font-mono text-black font-extrabold -mt-0.5">⌘K</span>
         </button>
 
         <button
           onClick={() => setIsNotificationsOpen(true)}
-          className="flex flex-col items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-white relative cursor-pointer"
+          className="flex flex-col items-center justify-center min-w-[56px] py-1 gap-1 text-[10px] font-bold tracking-tight text-slate-400 dark:text-gray-400 hover:text-white relative cursor-pointer rounded-xl btn-tactile"
         >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-0 right-3 w-2 h-2 bg-cyan-400 rounded-full" />
+          <div className="relative">
+            <Bell className="w-4.5 h-4.5" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full" />
+          </div>
           <span>Alertas</span>
         </button>
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className="flex flex-col items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-white cursor-pointer"
+          className="flex flex-col items-center justify-center min-w-[56px] py-1 gap-1 text-[10px] font-bold tracking-tight text-slate-400 dark:text-gray-400 hover:text-white cursor-pointer rounded-xl btn-tactile"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4.5 h-4.5" />
           <span>Menú</span>
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 lg:hidden flex">
-          <motion.aside 
-            initial={{ x: -300 }}
-            animate={{ x: 0 }}
-            className="w-64 bg-[#0c0c0d] border-r border-white/5 h-full flex flex-col"
-          >
-             <div className="h-16 flex items-center justify-between px-6 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                  <span className="font-black text-sm text-black">R</span>
+      {/* Mobile Menu Overlay Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 lg:hidden flex">
+            <motion.aside 
+              initial={{ x: -320 }}
+              animate={{ x: 0 }}
+              exit={{ x: -320 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="w-72 bg-[#0a0d14] border-r border-cyan-500/20 h-full flex flex-col shadow-2xl"
+            >
+              <div className="h-16 flex items-center justify-between px-5 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={logoBadge}
+                    alt="Reyplace Logo"
+                    className="w-8.5 h-8.5 rounded-xl border border-cyan-500/40 object-cover shadow-lg shadow-cyan-500/25 ring-1 ring-[#d946ef]/30"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex flex-col">
+                    <span className="brand-text-gradient font-black tracking-widest text-sm leading-none">REYPLACE</span>
+                    <span className="text-[9px] text-[#00d2ff] font-mono tracking-wider uppercase mt-0.5 font-bold">Ecosistema Digital</span>
+                  </div>
                 </div>
-                <span className="text-white font-bold tracking-widest text-lg ml-1">REYPLACE</span>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-500 hover:text-gray-300 cursor-pointer">
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-              {NAVIGATION.map((group) => (
-                <div key={group.category} className="space-y-1">
-                  <div className="px-3 mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{group.category}</div>
-                  {group.items.map((item) => (
-                    <button
-                      key={item.name}
-                      onClick={() => {
-                        onModuleChange?.(item.name);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer ${
-                        activeModule === item.name
-                          ? 'bg-white/5 text-cyan-400 border border-white/10'
-                          : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                      }`}
-                    >
-                      <item.icon className={`w-4 h-4 ${activeModule === item.name ? 'text-cyan-400' : 'text-gray-500'}`} />
-                      {item.name}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </nav>
-          </motion.aside>
-          <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)} />
-        </div>
-      )}
+
+              <div className="p-3 border-b border-white/5">
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsCommandPaletteOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400 hover:text-white hover:border-cyan-500/40 transition-all font-mono"
+                >
+                  <Search className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Buscar módulo... (⌘K)</span>
+                </button>
+              </div>
+
+              <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
+                {NAVIGATION.map((group) => (
+                  <div key={group.category} className="space-y-1">
+                    <div className="px-3 mb-1.5 text-[9px] font-mono font-bold text-gray-500 uppercase tracking-widest">{group.category}</div>
+                    {group.items.map((item) => (
+                      <button
+                        key={item.name}
+                        onClick={() => {
+                          onModuleChange?.(item.name);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all duration-150 ${
+                          activeModule === item.name
+                            ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                            : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                        }`}
+                      >
+                        <item.icon className={`w-4 h-4 shrink-0 ${activeModule === item.name ? 'text-cyan-400' : 'text-gray-500'}`} />
+                        <span className="truncate">{item.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </nav>
+
+              <div className="p-4 border-t border-white/10 space-y-2">
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsMobileMenuOpen(false);
+                    toast.info('Sesión Cerrada', 'Has cerrado sesión correctamente.');
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl hover:bg-rose-500/20 transition-colors w-full cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Cerrar Sesión
+                </button>
+              </div>
+            </motion.aside>
+            <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)} />
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Global Anti-Theft Lock & Panic Emergency Modal */}
+      <AntiTheftLockModal />
+
+      {/* Global WebGL Bio-Metric Verification Overlay */}
+      <BiometricVerificationOverlay />
     </div>
   );
 }

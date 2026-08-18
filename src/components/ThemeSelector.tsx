@@ -17,12 +17,18 @@ import {
   RotateCcw,
   X,
   ShieldCheck,
-  ArrowRight,
-  RefreshCw,
+  Radio,
+  Tv,
+  Gamepad2,
+  Droplets,
+  Square,
   Cpu,
   Wallet,
   Activity,
-  CheckCheck
+  CheckCheck,
+  History,
+  Flame,
+  Clock
 } from 'lucide-react';
 import {
   useThemeStore,
@@ -48,7 +54,7 @@ export function ThemeSelector() {
   } = useThemeStore();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'presets' | 'mode' | 'display'>('presets');
+  const [activeSubTab, setActiveSubTab] = useState<'decades' | 'classic' | 'mode' | 'display'>('decades');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -85,8 +91,8 @@ export function ThemeSelector() {
     { mode: 'system', label: 'Sistema OS', desc: 'Sincronizado dinámicamente con el SO', icon: Monitor },
   ];
 
-  const activePresetConfig = COLOR_PRESETS[colorPreset] || COLOR_PRESETS.cyan;
-  const draftPresetConfig = COLOR_PRESETS[draftPreset] || COLOR_PRESETS.cyan;
+  const activePresetConfig = COLOR_PRESETS[colorPreset] || COLOR_PRESETS.theme_2020s;
+  const draftPresetConfig = COLOR_PRESETS[draftPreset] || COLOR_PRESETS.theme_2020s;
 
   // Determine if there are pending unapplied changes
   const hasPendingChanges =
@@ -108,6 +114,26 @@ export function ThemeSelector() {
 
   const previewResolvedMode = getPreviewResolvedMode();
 
+  // Decade list configuration
+  const decadePresets: { key: ColorPreset; icon: React.ComponentType<{ className?: string }> }[] = [
+    { key: 'theme_70s', icon: Radio },
+    { key: 'theme_80s', icon: Tv },
+    { key: 'theme_90s', icon: Gamepad2 },
+    { key: 'theme_2000s', icon: Droplets },
+    { key: 'theme_2010s', icon: Square },
+    { key: 'theme_2020s', icon: Cpu },
+  ];
+
+  const classicPresets: ColorPreset[] = [
+    'cyan',
+    'sapphire',
+    'emerald',
+    'violet',
+    'amber',
+    'crimson',
+    'titanium',
+  ];
+
   // Apply Staged Draft to Global System
   const handleApplyChanges = () => {
     setTheme(draftMode);
@@ -116,8 +142,8 @@ export function ThemeSelector() {
     setBackgroundFx(draftBgFx);
     
     toast.success(
-      'Diseño Global Actualizado',
-      `Paleta ${draftPresetConfig.name} (${draftPresetConfig.subtitle}) y modo ${draftMode} aplicados al sistema.`
+      'Estilo Visual Aplicado',
+      `Tema ${draftPresetConfig.name} (${draftPresetConfig.subtitle}) activado globalmente.`
     );
     setIsOpen(false);
   };
@@ -128,16 +154,16 @@ export function ThemeSelector() {
     setDraftMode(theme);
     setDraftDensity(density);
     setDraftBgFx(backgroundFx);
-    toast.info('Cambios Descartados', 'Se restauraron los valores actuales del sistema.');
+    toast.info('Cambios Descartados', 'Se restauraron los valores activos del sistema.');
   };
 
-  // Reset to Default Factory Config
+  // Reset to 2020s default
   const handleResetToDefaults = () => {
-    setDraftPreset('cyan');
+    setDraftPreset('theme_2020s');
     setDraftMode('dark');
     setDraftDensity('comfortable');
     setDraftBgFx('aurora_blobs');
-    toast.info('Borrador Restablecido', 'Parámetros por defecto cargados en la vista previa.');
+    toast.info('Borrador Restablecido', 'Tema de la era 2020 cargado en borrador.');
   };
 
   return (
@@ -145,12 +171,12 @@ export function ThemeSelector() {
       {/* Trigger Button with Dynamic Glowing Color Orb */}
       <motion.button
         id="theme-selector-trigger"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.96 }}
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 border border-slate-200 dark:border-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm relative group"
         title={`Tema Activo: ${activePresetConfig.name} (${theme})`}
-        aria-label="Selector de Variaciones de Diseño & Paletas de Color"
+        aria-label="Selector de 6 Estilos de Temas Visuales por Década"
       >
         {/* Glowing Color Dot Indicator */}
         <div className="relative flex items-center justify-center">
@@ -158,12 +184,12 @@ export function ThemeSelector() {
             className="w-2.5 h-2.5 rounded-full transition-all duration-300 group-hover:scale-125"
             style={{
               backgroundColor: activePresetConfig.primary,
-              boxShadow: `0 0 8px ${activePresetConfig.primary}`,
+              boxShadow: `0 0 10px ${activePresetConfig.primary}`,
             }}
           />
         </div>
 
-        <Palette className="w-4 h-4 text-cyan-500 dark:text-cyan-400 group-hover:rotate-12 transition-transform" />
+        <History className="w-4 h-4 text-cyan-500 dark:text-cyan-400 group-hover:rotate-12 transition-transform" />
 
         <div className="hidden xl:flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase">
           <span className="text-slate-700 dark:text-slate-200">{activePresetConfig.name}</span>
@@ -180,23 +206,23 @@ export function ThemeSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.16 }}
-            className="absolute right-0 mt-3 w-[330px] sm:w-[440px] md:w-[480px] bg-white dark:bg-[#0d1322] border border-slate-200 dark:border-cyan-500/20 rounded-3xl shadow-2xl shadow-cyan-500/10 z-50 overflow-hidden backdrop-blur-2xl flex flex-col max-h-[85vh]"
+            className="absolute right-0 mt-3 w-[330px] sm:w-[470px] md:w-[520px] bg-white dark:bg-[#0d1322] border border-slate-200 dark:border-cyan-500/20 rounded-3xl shadow-2xl shadow-cyan-500/10 z-50 overflow-hidden backdrop-blur-2xl flex flex-col max-h-[88vh]"
           >
             {/* Header */}
             <div className="p-4 bg-slate-50 dark:bg-black/40 border-b border-slate-100 dark:border-white/10 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div
-                  className="p-2 rounded-xl text-black font-bold flex items-center justify-center transition-all duration-300"
+                  className="p-2 rounded-xl text-black font-bold flex items-center justify-center transition-all duration-300 shadow-md"
                   style={{
                     background: `linear-gradient(135deg, ${draftPresetConfig.primary}, ${draftPresetConfig.primaryDark})`,
                   }}
                 >
-                  <Palette className="w-4 h-4" />
+                  <Palette className="w-4 h-4 text-black" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                      Variaciones de Diseño
+                      Estilos UI/UX por Décadas
                     </h4>
                     {hasPendingChanges && (
                       <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
@@ -205,7 +231,7 @@ export function ThemeSelector() {
                     )}
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
-                    Previsualiza y confirma antes de aplicar
+                    70's • 80's • 90's • 2000's • 2010's • 2020's
                   </p>
                 </div>
               </div>
@@ -215,7 +241,7 @@ export function ThemeSelector() {
                   id="reset-theme-draft-btn"
                   onClick={handleResetToDefaults}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Restablecer Valores Por Defecto en Borrador"
+                  title="Restablecer Valores Por Defecto"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
@@ -230,11 +256,11 @@ export function ThemeSelector() {
             </div>
 
             {/* LIVE PREVIEW COMPONENT CONTAINER */}
-            <div className="p-4 bg-slate-100/70 dark:bg-black/30 border-b border-slate-200/60 dark:border-white/5 shrink-0 space-y-2">
+            <div className="p-3.5 bg-slate-100/70 dark:bg-black/30 border-b border-slate-200/60 dark:border-white/5 shrink-0 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-mono">
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-gray-300 font-bold uppercase">
                   <Eye className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-                  <span>Muestra en Vivo</span>
+                  <span>Previsualización en Tiempo Real</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 dark:text-gray-400">
@@ -256,27 +282,16 @@ export function ThemeSelector() {
                     : 'bg-white text-slate-900 border-slate-200 shadow-slate-200/50'
                 }`}
                 style={{
+                  backgroundColor: previewResolvedMode === 'dark' ? draftPresetConfig.cardBgDark : draftPresetConfig.cardBgLight,
+                  borderColor: `${draftPresetConfig.primary}40`,
                   fontSize: draftDensity === 'compact' ? '12px' : '13px',
                 }}
               >
-                {/* Simulated Background Atmosphere Layer */}
-                {draftBgFx === 'aurora_blobs' && (
-                  <div
-                    className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-xl pointer-events-none opacity-40 transition-all duration-500"
-                    style={{ backgroundColor: draftPresetConfig.primary }}
-                  />
-                )}
-                {draftBgFx === 'minimal_grid' && (
-                  <div
-                    className="absolute inset-0 pointer-events-none opacity-10"
-                    style={{
-                      backgroundImage: `radial-gradient(${
-                        previewResolvedMode === 'dark' ? '#ffffff' : '#000000'
-                      } 1px, transparent 1px)`,
-                      backgroundSize: '12px 12px',
-                    }}
-                  />
-                )}
+                {/* Simulated Atmospheric Layer */}
+                <div
+                  className="absolute -right-6 -top-6 w-28 h-28 rounded-full blur-xl pointer-events-none opacity-30 transition-all duration-500"
+                  style={{ backgroundColor: draftPresetConfig.primary }}
+                />
 
                 {/* Sample Card Content */}
                 <div className="relative z-10 space-y-2.5">
@@ -292,9 +307,9 @@ export function ThemeSelector() {
                         <ShieldCheck className="w-4 h-4 text-black" />
                       </div>
                       <div>
-                        <div className="font-bold text-xs leading-none">ReyID Enterprise Hub</div>
+                        <div className="font-bold text-xs leading-none">{draftPresetConfig.name}</div>
                         <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                          Nodo Criptográfico FIDO2
+                          {draftPresetConfig.vibeQuote}
                         </div>
                       </div>
                     </div>
@@ -308,7 +323,7 @@ export function ThemeSelector() {
                         borderWidth: '1px',
                       }}
                     >
-                      {draftPresetConfig.tag}
+                      {draftPresetConfig.eraPill || draftPresetConfig.tag}
                     </span>
                   </div>
 
@@ -323,23 +338,23 @@ export function ThemeSelector() {
                     <div>
                       <div className="text-[9px] font-mono text-gray-400 flex items-center gap-1">
                         <Wallet className="w-3 h-3 text-gray-400" />
-                        <span>Balance Reycoin</span>
+                        <span>Balance RYC</span>
                       </div>
                       <div
                         className="font-bold text-xs font-mono mt-0.5"
                         style={{ color: draftPresetConfig.primary }}
                       >
-                        1,420.50 REY
+                        2,750.00 RYC
                       </div>
                     </div>
 
                     <div>
                       <div className="text-[9px] font-mono text-gray-400 flex items-center gap-1">
                         <Activity className="w-3 h-3 text-emerald-400" />
-                        <span>Latencia Bloque</span>
+                        <span>Nostalgia Shield</span>
                       </div>
                       <div className="font-bold text-xs font-mono mt-0.5 text-emerald-400">
-                        12ms • 100% OK
+                        100% Auténtico
                       </div>
                     </div>
                   </div>
@@ -356,7 +371,7 @@ export function ThemeSelector() {
                       }}
                     >
                       <Zap className="w-3 h-3 text-black" />
-                      <span>Firmar Tx</span>
+                      <span>Ejecutar Acción</span>
                     </button>
 
                     <button
@@ -367,7 +382,7 @@ export function ThemeSelector() {
                           : 'bg-white border-slate-200 text-slate-700'
                       }`}
                     >
-                      Detalles
+                      {draftPresetConfig.tag}
                     </button>
                   </div>
                 </div>
@@ -375,11 +390,12 @@ export function ThemeSelector() {
             </div>
 
             {/* Sub Tabs Navigation */}
-            <div className="grid grid-cols-3 p-1.5 bg-slate-100 dark:bg-black/50 border-b border-slate-200/60 dark:border-white/5 text-[11px] font-mono font-bold shrink-0">
+            <div className="grid grid-cols-4 p-1.5 bg-slate-100 dark:bg-black/50 border-b border-slate-200/60 dark:border-white/5 text-[11px] font-mono font-bold shrink-0">
               {[
-                { id: 'presets', label: 'Paletas Cromo', icon: Sparkles },
-                { id: 'mode', label: 'Iluminación', icon: Sun },
-                { id: 'display', label: 'Efectos & HUD', icon: Sliders },
+                { id: 'decades', label: '6 Décadas', icon: History },
+                { id: 'classic', label: 'Clásicos', icon: Sparkles },
+                { id: 'mode', label: 'Luz / Modo', icon: Sun },
+                { id: 'display', label: 'Efectos', icon: Sliders },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isSelected = activeSubTab === tab.id;
@@ -387,33 +403,139 @@ export function ThemeSelector() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveSubTab(tab.id as any)}
-                    className={`py-1.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`py-1.5 rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm font-extrabold'
                         : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
                     }`}
                   >
-                    <Icon className="w-3 h-3" />
-                    <span>{tab.label}</span>
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{tab.label}</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Scrollable Tab Controls Area */}
-            <div className="p-4 overflow-y-auto flex-1 max-h-[260px] space-y-3">
-              {/* Tab 1: Color Presets */}
-              {activeSubTab === 'presets' && (
+            <div className="p-4 overflow-y-auto flex-1 max-h-[290px] space-y-3">
+              {/* Tab 1: 6 DECADE THEMES */}
+              {activeSubTab === 'decades' && (
+                <div className="space-y-2.5">
+                  <div className="text-[10px] text-slate-500 dark:text-gray-400 font-mono uppercase tracking-wider flex items-center justify-between">
+                    <span>6 Estilos de Épocas & Nostalgia Histórica</span>
+                    <span className="font-bold text-cyan-400">1970 — 2020+</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {decadePresets.map(({ key, icon: EraIcon }) => {
+                      const preset = COLOR_PRESETS[key];
+                      const isDraftSelected = draftPreset === key;
+                      const isSystemActive = colorPreset === key;
+
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setDraftPreset(key)}
+                          className={`w-full p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 group cursor-pointer ${
+                            isDraftSelected
+                              ? 'bg-slate-50 dark:bg-white/10 border-slate-400 dark:border-cyan-400/80 shadow-md ring-1 ring-cyan-500/30'
+                              : 'bg-white/50 dark:bg-black/20 border-slate-200/70 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {/* Era Icon Badge */}
+                              <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-black shrink-0 shadow-sm transition-transform group-hover:scale-105"
+                                style={{
+                                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.accent})`,
+                                }}
+                              >
+                                <EraIcon className="w-4 h-4 text-black" />
+                              </div>
+
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                                    {preset.name}
+                                  </span>
+                                  <span
+                                    className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold"
+                                    style={{
+                                      backgroundColor: `${preset.primary}20`,
+                                      color: preset.primary,
+                                      borderColor: `${preset.primary}40`,
+                                      borderWidth: '1px',
+                                    }}
+                                  >
+                                    {preset.eraPill}
+                                  </span>
+                                  {isSystemActive && (
+                                    <span className="text-[9px] font-mono text-emerald-500 font-bold">
+                                      [Activo]
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
+                                  {preset.subtitle}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* Color Swatch Dots */}
+                              <div className="flex items-center -space-x-1.5">
+                                <span
+                                  className="w-4 h-4 rounded-full border-2 border-white dark:border-[#0d1322] shadow-sm"
+                                  style={{ backgroundColor: preset.primary }}
+                                />
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#0d1322]"
+                                  style={{ backgroundColor: preset.accent }}
+                                />
+                                {preset.secondaryAccent && (
+                                  <span
+                                    className="w-3 h-3 rounded-full border-2 border-white dark:border-[#0d1322]"
+                                    style={{ backgroundColor: preset.secondaryAccent }}
+                                  />
+                                )}
+                              </div>
+
+                              {isDraftSelected && (
+                                <CheckCircle2
+                                  className="w-4 h-4 shrink-0"
+                                  style={{ color: preset.primary }}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Era Vibe Features Description */}
+                          <div className="text-[10px] text-slate-600 dark:text-gray-300 font-sans border-t border-slate-100 dark:border-white/5 pt-1.5 flex items-center justify-between">
+                            <span className="italic">{preset.vibeQuote}</span>
+                            <span className="text-[9px] font-mono text-slate-400 dark:text-gray-500 font-semibold">
+                              {preset.tag}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Classic Presets */}
+              {activeSubTab === 'classic' && (
                 <div className="space-y-2">
                   <div className="text-[10px] text-slate-500 dark:text-gray-400 font-mono uppercase tracking-wider flex items-center justify-between">
-                    <span>Selecciona una Paleta Cromática</span>
+                    <span>Paletas Cromáticas Monocolor Clásicas</span>
                     <span className="font-bold" style={{ color: draftPresetConfig.primary }}>
                       {draftPresetConfig.name}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-1.5">
-                    {(Object.keys(COLOR_PRESETS) as ColorPreset[]).map((presetKey) => {
+                    {classicPresets.map((presetKey) => {
                       const preset = COLOR_PRESETS[presetKey];
                       const isDraftSelected = draftPreset === presetKey;
                       const isSystemActive = colorPreset === presetKey;
@@ -474,7 +596,7 @@ export function ThemeSelector() {
                 </div>
               )}
 
-              {/* Tab 2: Lighting & Theme Modes */}
+              {/* Tab 3: Lighting & Theme Modes */}
               {activeSubTab === 'mode' && (
                 <div className="space-y-2">
                   <div className="text-[10px] text-slate-500 dark:text-gray-400 font-mono uppercase tracking-wider">
@@ -530,7 +652,7 @@ export function ThemeSelector() {
                 </div>
               )}
 
-              {/* Tab 3: Effects & UI Density */}
+              {/* Tab 4: Effects & UI Density */}
               {activeSubTab === 'display' && (
                 <div className="space-y-3 font-mono">
                   {/* Density Switch */}
@@ -568,13 +690,14 @@ export function ThemeSelector() {
                   {/* Background Atmosphere / Blobs */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] text-slate-500 dark:text-gray-400 uppercase tracking-wider block">
-                      Atmósfera & Efectos Líquidos
+                      Atmósfera & Partículas Dinámicas
                     </span>
                     <div className="grid grid-cols-3 gap-1.5 text-[11px]">
                       {[
                         { id: 'aurora_blobs', label: 'Aurora Blobs', icon: Zap },
-                        { id: 'minimal_grid', label: 'Rejilla HUD', icon: Layers },
-                        { id: 'none', label: 'Puro / Plano', icon: Eye },
+                        { id: 'cyber_grid', label: 'Cyber Grid', icon: Layers },
+                        { id: 'deep_space', label: 'Deep Space', icon: Sparkles },
+                        { id: 'none', label: 'Plano', icon: Eye },
                       ].map((fx) => {
                         const isDraftSelected = draftBgFx === fx.id;
                         const Icon = fx.icon;

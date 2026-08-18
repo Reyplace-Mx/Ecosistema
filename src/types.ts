@@ -12,6 +12,24 @@ export interface ReyIDProfile {
 
 export type UserProfile = ReyIDProfile;
 
+export interface ReyIDAuthEvent {
+  id: string;
+  timestamp: string;
+  formattedTime: string;
+  formattedDate: string;
+  method: 'WebAuthn / Passkey' | 'Biométrico Facial (Face ID)' | 'Touch ID / Huella' | 'YubiKey Hardware FIDO2' | 'OAuth Google Seguro' | 'Web3 Key Signature';
+  status: 'SUCCESS' | 'VERIFIED' | 'PASSKEY_VALIDATED';
+  statusLabel: string;
+  device: string;
+  did: string;
+  user: string;
+  ipAddress: string;
+  location: string;
+  cryptographicHash: string;
+  aaguid?: string;
+  algorithm?: string;
+}
+
 
 export interface SignatureLog {
   id: string;

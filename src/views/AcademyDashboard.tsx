@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { AnimatedCard } from '../components/AnimatedCard';
 import { 
   GraduationCap,
   BookOpen,
@@ -148,9 +149,7 @@ export function AcademyDashboard() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {MOCK_COURSES.map(course => (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                <AnimatedCard 
                   key={course.id}
                   className="bg-[#111112] border border-white/5 rounded-2xl overflow-hidden shadow-xl group hover:border-white/10 transition-colors flex flex-col"
                 >
@@ -199,7 +198,7 @@ export function AcademyDashboard() {
                       )}
                     </div>
                   </div>
-                </motion.div>
+                </AnimatedCard>
               ))}
             </div>
           </div>
