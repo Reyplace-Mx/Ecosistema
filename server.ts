@@ -385,6 +385,160 @@ Proporciona respuestas claras, estructuradas con viñetas o pasos si aplica. Man
     }
   });
 
+  // API Endpoint: AI-driven Predictive Insights for Smart City Data Layers
+  const PredictiveInsightsSchema = z.object({
+    activeLayers: z.object({
+      infrastructure: z.boolean(),
+      trafficFlow: z.boolean(),
+      environmentalSensors: z.boolean(),
+      shadows: z.boolean().optional(),
+      zoningEnvelope: z.boolean().optional(),
+    }),
+    simulationYear: z.number().default(2024),
+    selectedBuilding: z.object({
+      name: z.string(),
+      type: z.string(),
+      buildingUsage: z.string(),
+      energyRating: z.string(),
+      heightMeters: z.number(),
+    }).optional(),
+    telemetrySummary: z.object({
+      avgTrafficDensity: z.number().optional(),
+      avgSpeedKmh: z.number().optional(),
+      avgAqi: z.number().optional(),
+      avgPm25: z.number().optional(),
+      solarOutputKw: z.number().optional(),
+      gridDemandKw: z.number().optional(),
+    }).optional(),
+  }).strict();
+
+  app.post("/api/smartcity-predictive-insights", async (req, res) => {
+    try {
+      const parseResult = PredictiveInsightsSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Datos de entrada inválidos para análisis predictivo",
+          validationErrors: parseResult.error.flatten(),
+        });
+      }
+
+      const { activeLayers, simulationYear, selectedBuilding, telemetrySummary } = parseResult.data;
+      const ai = getAiClient();
+
+      if (ai) {
+        const systemPrompt = `Eres un Arquitecto Jefe de Sistemas Urbanos Inteligentes e IA Predictiva para Ciudades Inteligentes (Smart City Digital Twin).
+Analiza las capas activas de datos urbanos (Infraestructura 5G/Eléctrica/Hidráulica, Flujo Vial y Sensores Ambientales AQI/PM2.5/Ruido/Solar) para el horizonte temporal del año ${simulationYear}.
+
+Proporciona un diagnóstico técnico y predictivo estructurado en formato JSON con:
+1. "summaryTitle": Título conciso del informe de eficiencia (máx 10 palabras).
+2. "efficiencyScore": Índice numérico de eficiencia urbana de 0 a 100%.
+3. "trendDirection": "POSITIVE_OPTIMIZATION" | "STABLE_EQUILIBRIUM" | "CRITICAL_BOTTLENECK".
+4. "executiveSummary": Resumen analítico conciso de 2-3 párrafos destacando correlaciones entre capas (ej. impacto del viaducto eléctrico en la reducción de PM2.5, balance solar vs demanda de red y latencia de microceldas 5G).
+5. "criticalBottlenecks": Array de 2 a 4 anomalías o cuellos de botella detectados o proyectados.
+6. "strategicRecommendations": Array de 2 a 4 acciones recomendadas de gobernanza urbana y Edge AI.
+7. "forecast2030Impact": Estimación cuantitativa de impacto en emisiones CO2, tiempo de traslado y resiliencia de la red eléctrica.`;
+
+        const userPrompt = `Datos actuales del Gemelo Digital 3D:
+- Año de simulación: ${simulationYear}
+- Capas visibles activadas: ${JSON.stringify(activeLayers)}
+- Edificio de referencia: ${selectedBuilding ? JSON.stringify(selectedBuilding) : 'Distrito Centro Los Mochis'}
+- Resumen de telemetría: ${telemetrySummary ? JSON.stringify(telemetrySummary) : 'Tráfico: 68%, AQI: 45, Solar: 380kW, Red: 420kW'}`;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+            }
+          ],
+          config: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                summaryTitle: { type: Type.STRING },
+                efficiencyScore: { type: Type.NUMBER },
+                trendDirection: { type: Type.STRING },
+                executiveSummary: { type: Type.STRING },
+                criticalBottlenecks: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                strategicRecommendations: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                forecast2030Impact: {
+                  type: Type.OBJECT,
+                  properties: {
+                    co2ReductionPercent: { type: Type.NUMBER },
+                    commuteTimeSavedMin: { type: Type.NUMBER },
+                    gridResilienceScore: { type: Type.NUMBER }
+                  },
+                  required: ["co2ReductionPercent", "commuteTimeSavedMin", "gridResilienceScore"]
+                }
+              },
+              required: [
+                "summaryTitle",
+                "efficiencyScore",
+                "trendDirection",
+                "executiveSummary",
+                "criticalBottlenecks",
+                "strategicRecommendations",
+                "forecast2030Impact"
+              ]
+            }
+          }
+        });
+
+        const jsonText = response.text || "{}";
+        const resultData = JSON.parse(jsonText);
+        return res.json(stripSensitiveFields({
+          ...resultData,
+          aiEngine: "Gemini 2.5 Flash Predictive Engine (Real API)",
+          generatedAt: new Date().toISOString()
+        }));
+      } else {
+        // Fallback intelligent simulation
+        const isFuture = simulationYear >= 2026;
+        const efficiencyScore = isFuture ? 89 : (simulationYear === 2024 ? 74 : 58);
+        const fallbackResponse = {
+          summaryTitle: `Diagnóstico Predictivo de Eficiencia Urbana - Horizonte ${simulationYear}`,
+          efficiencyScore,
+          trendDirection: isFuture ? "POSITIVE_OPTIMIZATION" : "STABLE_EQUILIBRIUM",
+          executiveSummary: `El análisis multidimensional del Gemelo Digital 3D para el año ${simulationYear} revela una correlación directa entre la activación de la infraestructura de transporte electrificado y la disminución en un ${(efficiencyScore * 0.4).toFixed(1)}% de las concentraciones de partículas PM2.5 en los corredores arteriales. Las redes de microceldas 5G y los nodos de sensores IoT mantienen una latencia de mediación en el borde inferior a 14ms, optimizando la sincronización semafórica adaptativa.`,
+          criticalBottlenecks: [
+            activeLayers.trafficFlow ? "Saturación en horas pico (08:00 - 09:30) en el nodo de intersección Rosales y Boulevard Central." : "Monitoreo vial en modo pasivo por capa desactivada.",
+            activeLayers.environmentalSensors ? "Picos de calor urbano en estacionamientos sin pérgolas fotovoltaicas." : "Capa de telemetría ambiental en modo resumido.",
+            "Demanda de recarga rápida de vehículos eléctricos superando en un 18% la generación solar local al mediodía."
+          ],
+          strategicRecommendations: [
+            "Activar balanceo de carga Edge AI en las subestaciones eléctricas para transferir excedentes fotovoltaicos a cargadores EV.",
+            "Implementar semaforización basada en densidad en tiempo real para descongestionar el eje Insurgentes.",
+            "Desplegar pavimentos fotocatalíticos y arbolado bioclimático en zonas con AQI superior a 50."
+          ],
+          forecast2030Impact: {
+            co2ReductionPercent: isFuture ? 38.5 : 18.2,
+            commuteTimeSavedMin: isFuture ? 24 : 12,
+            gridResilienceScore: isFuture ? 94 : 76
+          },
+          aiEngine: "Gemini Predictive Engine (Simulación de Respaldo Local)",
+          generatedAt: new Date().toISOString()
+        };
+
+        return res.json(stripSensitiveFields(fallbackResponse));
+      }
+    } catch (err: any) {
+      console.error("Error en Smart City Predictive Insights API:", err);
+      return res.status(500).json({
+        error: "Error al generar análisis predictivo con Gemini",
+        details: err?.message || String(err)
+      });
+    }
+  });
+
   // API Endpoint: Analyze Infrastructure Issue Photo via Gemini Vision
   const IssuePhotoSchema = z.object({
     imageBase64: z.string().min(10, "La imagen Base64 es obligatoria"),
