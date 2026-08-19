@@ -59,7 +59,12 @@ import {
   Check,
   ScanFace,
   Award,
-  TrendingUp
+  TrendingUp,
+  QrCode,
+  EyeOff,
+  Users,
+  Download,
+  FileCheck2
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -75,6 +80,12 @@ import type { SignatureLog, WebAuthnDevice, SupabaseSyncState } from '../types';
 import { SupabaseSyncIndicator } from '../components/SupabaseSyncIndicator';
 import { ActivityStream } from '../components/ActivityStream';
 import { RecentActivityLog } from '../components/RecentActivityLog';
+import { ReyIDPublicQRModal } from '../components/ReyIDPublicQRModal';
+import { ReyIDW3CCredentialsManager } from '../components/ReyIDW3CCredentialsManager';
+import { ReyIDPrivacyZKPEngine } from '../components/ReyIDPrivacyZKPEngine';
+import { ReyIDSocialRecoveryGuardian } from '../components/ReyIDSocialRecoveryGuardian';
+import { ReyIDSovereignBackupModal } from '../components/ReyIDSovereignBackupModal';
+import { ReyIDBiometricAuthCard } from '../components/ReyIDBiometricAuthCard';
 
 const INITIAL_LOGS: SignatureLog[] = [
   { id: 'sig_1', action: 'Contrato de Arrendamiento', module: 'Smart City', timestamp: 'Hace 2 horas', status: 'confirmed', txHash: '0x8f...1c4' },
@@ -147,11 +158,26 @@ const INITIAL_WEBAUTHN_DEVICES: WebAuthnDevice[] = [
 ];
 
 export function ReyIDDashboard() {
-  const { user, isLoggedIn, login, signup, loginWithGoogle, loginWithWeb3Wallet, logout } = useAuth();
+  const {
+    user,
+    isLoggedIn,
+    login,
+    signup,
+    loginWithGoogle,
+    loginWithWeb3Wallet,
+    loginWithBiometrics,
+    registerWithBiometrics,
+    logout
+  } = useAuth();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'webauthn' | 'config' | 'auth' | 'sign' | 'activity'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'zkp_privacy' | 'social_recovery' | 'webauthn' | 'config' | 'auth' | 'sign' | 'activity'>('profile');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authSubTab, setAuthSubTab] = useState<'biometric' | 'forms'>('biometric');
+
+  // Modals for QR and Sovereign Backup
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   // Supabase Sync Indicator State
   const [supabaseSyncStatus, setSupabaseSyncStatus] = useState<SupabaseSyncState>('synced');
@@ -176,20 +202,15 @@ export function ReyIDDashboard() {
   const handleBiometricWebAuthnLogin = async () => {
     setIsBiometricLoggingIn(true);
     try {
-      const result = await authenticateWithWebAuthn('reyid_master_passkey');
-      if (result.success) {
-        await login('biometric_passkey@reyplace.org');
-        triggerSupabaseSync('Inicio de Sesión WebAuthn Biométrico / Passkey');
-        toast.success(
-          '¡Autenticación Biométrica Exitosa!',
-          `Identidad ReyID verificada con ${result.authenticator}. Llave FIDO2 validada.`
-        );
-        setActiveTab('profile');
-      } else {
-        toast.error('Fallo Biométrico', 'No se pudo verificar la huella o rostro con WebAuthn.');
-      }
+      const bioUser = await loginWithBiometrics();
+      triggerSupabaseSync('Inicio de Sesión WebAuthn Biométrico / Passkey');
+      toast.success(
+        '¡Autenticación Biométrica Exitosa!',
+        `Identidad ${bioUser.name} validada mediante hardware FIDO2.`
+      );
+      setActiveTab('profile');
     } catch (err: any) {
-      toast.error('Error WebAuthn', 'Autenticación biométrica cancelada o no disponible.');
+      toast.error('Error WebAuthn', err?.message || 'Autenticación biométrica cancelada o no disponible.');
     } finally {
       setIsBiometricLoggingIn(false);
     }
@@ -390,6 +411,22 @@ export function ReyIDDashboard() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsQRModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black rounded-2xl text-xs font-mono font-bold shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+          >
+            <QrCode className="w-4 h-4 text-black" />
+            <span>Código QR ReyID</span>
+          </button>
+
+          <button
+            onClick={() => setIsBackupModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 text-cyan-300 border border-cyan-500/30 rounded-2xl text-xs font-mono font-bold shadow-md transition-all cursor-pointer"
+          >
+            <Lock className="w-4 h-4 text-cyan-400" />
+            <span>Bóveda & Backup AES</span>
+          </button>
+
           {isLoggedIn ? (
             <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 px-3.5 py-1.5 rounded-2xl text-xs text-cyan-300 font-mono shadow-md">
               <UserCheck className="w-4 h-4 text-cyan-400" />
@@ -420,10 +457,10 @@ export function ReyIDDashboard() {
       <EmergencyAlertsWidget />
 
       {/* Tabs Navigation */}
-      <div className="flex flex-wrap gap-2.5 border-b border-white/10 pb-4">
+      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'profile'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
@@ -434,44 +471,80 @@ export function ReyIDDashboard() {
         </button>
 
         <button
+          onClick={() => setActiveTab('credentials')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === 'credentials'
+              ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
+              : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Award className="w-4 h-4" />
+          Credenciales W3C (Ahome/Sinaloa)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('zkp_privacy')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === 'zkp_privacy'
+              ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
+              : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <EyeOff className="w-4 h-4" />
+          Privacidad ZKP (Enclave)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('social_recovery')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === 'social_recovery'
+              ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
+              : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Recuperación Social (2/3)
+        </button>
+
+        <button
           onClick={() => setActiveTab('webauthn')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'webauthn'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          Gestión de Llaves FIDO2 ({devices.filter(d => d.status === 'active').length})
+          Llaves FIDO2 ({devices.filter(d => d.status === 'active').length})
         </button>
 
         <button
           onClick={() => setActiveTab('config')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'config'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Settings className="w-4 h-4" />
-          Configuración Biométrica
+          Config Biometría
         </button>
 
         <button
           onClick={() => setActiveTab('auth')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'auth'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <LogIn className="w-4 h-4" />
-          Autenticación & Zod
+          Auth & Zod
         </button>
 
         <button
           onClick={() => setActiveTab('sign')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'sign'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
@@ -483,14 +556,14 @@ export function ReyIDDashboard() {
 
         <button
           onClick={() => setActiveTab('activity')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === 'activity'
               ? 'neu-button-cyan text-black shadow-lg shadow-cyan-500/25 scale-105'
               : 'glass-panel-dark text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Activity className="w-4 h-4" />
-          Flujo de Actividad & Tráfico
+          Flujo Actividad
         </button>
       </div>
 
@@ -550,6 +623,21 @@ export function ReyIDDashboard() {
 
                   {isLoggedIn && (
                     <div className="space-y-2 mt-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setIsQRModalOpen(true)}
+                          className="py-2.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-cyan-400" /> Código QR
+                        </button>
+                        <button
+                          onClick={() => setIsBackupModalOpen(true)}
+                          className="py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-cyan-400" /> Bóveda AES
+                        </button>
+                      </div>
+
                       <button
                         onClick={() => setIsLivenessModalOpen(true)}
                         className="w-full py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
@@ -857,352 +945,383 @@ export function ReyIDDashboard() {
         />
       )}
 
-      {/* TAB CONTENT 3: Auth Forms with Zod Validation */}
+      {/* TAB CONTENT 3: Auth Forms with Zod Validation & Biometric WebAuthn */}
       {activeTab === 'auth' && (
         <div className="max-w-2xl mx-auto space-y-6">
-          <AnimatedCard className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl relative">
-            
-            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('login')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
-                    authMode === 'login'
-                      ? 'bg-cyan-600 text-black'
-                      : 'bg-white/5 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <LogIn className="w-4 h-4" /> Iniciar Sesión
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('signup')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
-                    authMode === 'signup'
-                      ? 'bg-cyan-600 text-black'
-                      : 'bg-white/5 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <UserPlus className="w-4 h-4" /> Crear Cuenta
-                </button>
-              </div>
+          {/* Sub Tab Selector */}
+          <div className="flex items-center gap-2 p-1.5 bg-[#111112] rounded-2xl border border-cyan-500/20 shadow-xl">
+            <button
+              onClick={() => setAuthSubTab('biometric')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                authSubTab === 'biometric'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black shadow-lg shadow-cyan-500/25'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Fingerprint className="w-4 h-4" />
+              <span>Biometría Hardware (WebAuthn / Passkey)</span>
+            </button>
 
-              <div className="flex items-center gap-1 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
-                <Sparkles className="w-3 h-3" /> Zod Validations Enabled
-              </div>
-            </div>
+            <button
+              onClick={() => setAuthSubTab('forms')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                authSubTab === 'forms'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black shadow-lg shadow-cyan-500/25'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              <span>Credenciales Clásicas (Zod)</span>
+            </button>
+          </div>
 
-            {/* Quick Provider Login (Biometric Passkey, Google & Web3 Wallet) */}
-            <div className="mb-6 pb-6 border-b border-white/10 space-y-3">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
-                <span>Acceso Rápido Vinculado a ReyID</span>
-                <span className="text-[10px] text-cyan-400 font-mono">WebAuthn FIDO2</span>
-              </div>
-
-              {/* Biometric Passkey Hero Button */}
-              <button
-                type="button"
-                onClick={handleBiometricWebAuthnLogin}
-                disabled={isBiometricLoggingIn}
-                className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/80 via-blue-950/70 to-purple-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 border border-cyan-500/40 text-white transition-all shadow-xl shadow-cyan-500/10 flex items-center justify-between group cursor-pointer"
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 group-hover:scale-105 transition-transform">
-                    {isBiometricLoggingIn ? (
-                      <RefreshCw className="w-5 h-5 animate-spin text-cyan-300" />
-                    ) : (
-                      <Fingerprint className="w-5 h-5 text-cyan-300" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span>Iniciar Sesión con Passkey Biométrico</span>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">1-CLICK</span>
-                    </div>
-                    <p className="text-[11px] text-gray-400">Touch ID, Face ID, Windows Hello o Llave de Seguridad</p>
-                  </div>
-                </div>
-
-                <div className="text-cyan-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                  <span>{isBiometricLoggingIn ? 'Escaneando...' : 'Escanear'}</span>
-                  <ScanFace className="w-4 h-4" />
-                </div>
-              </button>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await loginWithGoogle();
-                      triggerSupabaseSync('Autenticación Google OAuth');
-                      toast.success('Sesión Iniciada con Google', 'ReyID vinculado a Google Auth.');
-                      setActiveTab('profile');
-                    } catch {
-                      toast.error('Error Google', 'No se pudo completar la autenticación con Google.');
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all cursor-pointer"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                  <span>ReyID con Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await loginWithWeb3Wallet();
-                      triggerSupabaseSync('Conexión Web3 Wallet');
-                      toast.success('Billetera Web3 Conectada', 'ReyID vinculado a Ethereum / ReyChain L2 DID.');
-                      setActiveTab('profile');
-                    } catch {
-                      toast.error('Error Web3', 'No se pudo conectar la billetera Web3.');
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all cursor-pointer"
-                >
-                  <Wallet className="w-4 h-4 text-cyan-400" />
-                  <span>Billetera Web3 / MetaMask</span>
-                </button>
-              </div>
-            </div>
-
-            {/* LOGIN FORM */}
-            {authMode === 'login' && (
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                    Correo Electrónico / DID / Handle
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      placeholder="usuario@ejemplo.com o @vanguard"
-                      value={loginData.email}
-                      onChange={(e) => {
-                        setLoginData({ ...loginData, email: e.target.value });
-                        validateLoginField('email', e.target.value);
-                      }}
-                      className={`w-full bg-[#080809] border ${
-                        loginErrors.email ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
-                      } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
-                    />
-                  </div>
-                  {loginErrors.email && (
-                    <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {loginErrors.email}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                    Contraseña
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={loginData.password}
-                      onChange={(e) => {
-                        setLoginData({ ...loginData, password: e.target.value });
-                        validateLoginField('password', e.target.value);
-                      }}
-                      className={`w-full bg-[#080809] border ${
-                        loginErrors.password ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
-                      } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
-                    />
-                  </div>
-                  {loginErrors.password && (
-                    <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {loginErrors.password}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2">
+          {authSubTab === 'biometric' ? (
+            <ReyIDBiometricAuthCard onAuthSuccess={() => setActiveTab('profile')} />
+          ) : (
+            <AnimatedCard className="bg-[#111112] border border-cyan-500/20 rounded-2xl p-6 shadow-2xl relative">
+              
+              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+                <div className="flex gap-2">
                   <button
-                    type="submit"
-                    disabled={isSubmittingLogin}
-                    className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+                      authMode === 'login'
+                        ? 'bg-cyan-600 text-black'
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
                   >
-                    {isSubmittingLogin ? (
-                      <span className="animate-pulse">Validando credenciales Zod...</span>
-                    ) : (
-                      <>
-                        <LogIn className="w-4 h-4" /> Iniciar Sesión en Reyplace
-                      </>
-                    )}
+                    <LogIn className="w-4 h-4" /> Iniciar Sesión
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('signup')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+                      authMode === 'signup'
+                        ? 'bg-cyan-600 text-black'
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <UserPlus className="w-4 h-4" /> Crear Cuenta
                   </button>
                 </div>
-              </form>
-            )}
 
-            {/* SIGNUP FORM */}
-            {authMode === 'signup' && (
-              <form onSubmit={handleSignupSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center gap-1 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
+                  <Sparkles className="w-3 h-3" /> Zod Validations Enabled
+                </div>
+              </div>
+
+              {/* Quick Provider Login (Biometric Passkey, Google & Web3 Wallet) */}
+              <div className="mb-6 pb-6 border-b border-white/10 space-y-3">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                  <span>Acceso Rápido Vinculado a ReyID</span>
+                  <span className="text-[10px] text-cyan-400 font-mono">WebAuthn FIDO2</span>
+                </div>
+
+                {/* Biometric Passkey Hero Button */}
+                <button
+                  type="button"
+                  onClick={handleBiometricWebAuthnLogin}
+                  disabled={isBiometricLoggingIn}
+                  className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/80 via-blue-950/70 to-purple-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 border border-cyan-500/40 text-white transition-all shadow-xl shadow-cyan-500/10 flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 group-hover:scale-105 transition-transform">
+                      {isBiometricLoggingIn ? (
+                        <RefreshCw className="w-5 h-5 animate-spin text-cyan-300" />
+                      ) : (
+                        <Fingerprint className="w-5 h-5 text-cyan-300" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Iniciar Sesión con Passkey Biométrico</span>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">1-CLICK</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400">Touch ID, Face ID, Windows Hello o Llave de Seguridad</p>
+                    </div>
+                  </div>
+
+                  <div className="text-cyan-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    <span>{isBiometricLoggingIn ? 'Escaneando...' : 'Escanear'}</span>
+                    <ScanFace className="w-4 h-4" />
+                  </div>
+                </button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await loginWithGoogle();
+                        triggerSupabaseSync('Autenticación Google OAuth');
+                        toast.success('Sesión Iniciada con Google', 'ReyID vinculado a Google Auth.');
+                        setActiveTab('profile');
+                      } catch {
+                        toast.error('Error Google', 'No se pudo completar la autenticación con Google.');
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>ReyID con Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await loginWithWeb3Wallet();
+                        triggerSupabaseSync('Conexión Web3 Wallet');
+                        toast.success('Billetera Web3 Conectada', 'ReyID vinculado a Ethereum / ReyChain L2 DID.');
+                        setActiveTab('profile');
+                      } catch {
+                        toast.error('Error Web3', 'No se pudo conectar la billetera Web3.');
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <Wallet className="w-4 h-4 text-cyan-400" />
+                    <span>Billetera Web3 / MetaMask</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* LOGIN FORM */}
+              {authMode === 'login' && (
+                <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Nombre Completo
+                      Correo Electrónico / DID / Handle
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                      <Mail className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
                       <input
                         type="text"
-                        placeholder="Ej: Elena Rostova"
-                        value={signupData.fullName}
+                        placeholder="usuario@ejemplo.com o @vanguard"
+                        value={loginData.email}
                         onChange={(e) => {
-                          setSignupData({ ...signupData, fullName: e.target.value });
-                          validateSignupField('fullName', e.target.value);
+                          setLoginData({ ...loginData, email: e.target.value });
+                          validateLoginField('email', e.target.value);
                         }}
                         className={`w-full bg-[#080809] border ${
-                          signupErrors.fullName ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          loginErrors.email ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
                         } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
                       />
                     </div>
-                    {signupErrors.fullName && (
+                    {loginErrors.email && (
                       <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.fullName}
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {loginErrors.email}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Alias ReyID (@handle)
-                    </label>
-                    <div className="relative">
-                      <AtSign className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        placeholder="elena_tech"
-                        value={signupData.handle}
-                        onChange={(e) => {
-                          setSignupData({ ...signupData, handle: e.target.value });
-                          validateSignupField('handle', e.target.value);
-                        }}
-                        className={`w-full bg-[#080809] border ${
-                          signupErrors.handle ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
-                        } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
-                      />
-                    </div>
-                    {signupErrors.handle && (
-                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.handle}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                    Correo Electrónico
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
-                    <input
-                      type="email"
-                      placeholder="elena@empresa.com"
-                      value={signupData.email}
-                      onChange={(e) => {
-                        setSignupData({ ...signupData, email: e.target.value });
-                        validateSignupField('email', e.target.value);
-                      }}
-                      className={`w-full bg-[#080809] border ${
-                        signupErrors.email ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
-                      } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
-                    />
-                  </div>
-                  {signupErrors.email && (
-                    <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.email}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Contraseña (Mínimo 8 caracteres)
+                      Contraseña
                     </label>
                     <div className="relative">
                       <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
                       <input
                         type="password"
                         placeholder="••••••••"
-                        value={signupData.password}
+                        value={loginData.password}
                         onChange={(e) => {
-                          setSignupData({ ...signupData, password: e.target.value });
-                          validateSignupField('password', e.target.value);
+                          setLoginData({ ...loginData, password: e.target.value });
+                          validateLoginField('password', e.target.value);
                         }}
                         className={`w-full bg-[#080809] border ${
-                          signupErrors.password ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          loginErrors.password ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
                         } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
                       />
                     </div>
-                    {signupErrors.password && (
+                    {loginErrors.password && (
                       <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.password}
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {loginErrors.password}
                       </p>
                     )}
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingLogin}
+                      className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingLogin ? (
+                        <span className="animate-pulse">Validando credenciales Zod...</span>
+                      ) : (
+                        <>
+                          <LogIn className="w-4 h-4" /> Iniciar Sesión en Reyplace
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* SIGNUP FORM */}
+              {authMode === 'signup' && (
+                <form onSubmit={handleSignupSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Nombre Completo
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          placeholder="Ej: Elena Rostova"
+                          value={signupData.fullName}
+                          onChange={(e) => {
+                            setSignupData({ ...signupData, fullName: e.target.value });
+                            validateSignupField('fullName', e.target.value);
+                          }}
+                          className={`w-full bg-[#080809] border ${
+                            signupErrors.fullName ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
+                        />
+                      </div>
+                      {signupErrors.fullName && (
+                        <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.fullName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Alias ReyID (@handle)
+                      </label>
+                      <div className="relative">
+                        <AtSign className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          placeholder="elena_tech"
+                          value={signupData.handle}
+                          onChange={(e) => {
+                            setSignupData({ ...signupData, handle: e.target.value });
+                            validateSignupField('handle', e.target.value);
+                          }}
+                          className={`w-full bg-[#080809] border ${
+                            signupErrors.handle ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
+                        />
+                      </div>
+                      {signupErrors.handle && (
+                        <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.handle}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Confirmar Contraseña
+                      Correo Electrónico
                     </label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                      <Mail className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
                       <input
-                        type="password"
-                        placeholder="••••••••"
-                        value={signupData.confirmPassword}
+                        type="email"
+                        placeholder="elena@empresa.com"
+                        value={signupData.email}
                         onChange={(e) => {
-                          setSignupData({ ...signupData, confirmPassword: e.target.value });
-                          validateSignupField('confirmPassword', e.target.value);
+                          setSignupData({ ...signupData, email: e.target.value });
+                          validateSignupField('email', e.target.value);
                         }}
                         className={`w-full bg-[#080809] border ${
-                          signupErrors.confirmPassword ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          signupErrors.email ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
                         } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
                       />
                     </div>
-                    {signupErrors.confirmPassword && (
+                    {signupErrors.email && (
                       <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.confirmPassword}
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.email}
                       </p>
                     )}
                   </div>
-                </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmittingSignup}
-                    className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmittingSignup ? (
-                      <span className="animate-pulse">Generando ReyID Criptográfico...</span>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" /> Registrar Cuenta y Asignar DID
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Contraseña (Mínimo 8 caracteres)
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={signupData.password}
+                          onChange={(e) => {
+                            setSignupData({ ...signupData, password: e.target.value });
+                            validateSignupField('password', e.target.value);
+                          }}
+                          className={`w-full bg-[#080809] border ${
+                            signupErrors.password ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
+                        />
+                      </div>
+                      {signupErrors.password && (
+                        <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.password}
+                        </p>
+                      )}
+                    </div>
 
-          </AnimatedCard>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Confirmar Contraseña
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={signupData.confirmPassword}
+                          onChange={(e) => {
+                            setSignupData({ ...signupData, confirmPassword: e.target.value });
+                            validateSignupField('confirmPassword', e.target.value);
+                          }}
+                          className={`w-full bg-[#080809] border ${
+                            signupErrors.confirmPassword ? 'border-rose-500 text-rose-300' : 'border-white/10 text-white focus:border-cyan-500'
+                          } rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono transition-colors outline-none`}
+                        />
+                      </div>
+                      {signupErrors.confirmPassword && (
+                        <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {signupErrors.confirmPassword}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingSignup}
+                      className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingSignup ? (
+                        <span className="animate-pulse">Generando ReyID Criptográfico...</span>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" /> Registrar Cuenta y Asignar DID
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+            </AnimatedCard>
+          )}
         </div>
       )}
 
@@ -1279,6 +1398,21 @@ export function ReyIDDashboard() {
         </div>
       )}
 
+      {/* TAB CONTENT: W3C Credentials */}
+      {activeTab === 'credentials' && (
+        <ReyIDW3CCredentialsManager />
+      )}
+
+      {/* TAB CONTENT: ZKP Privacy Enclave */}
+      {activeTab === 'zkp_privacy' && (
+        <ReyIDPrivacyZKPEngine />
+      )}
+
+      {/* TAB CONTENT: Social Recovery Guardians */}
+      {activeTab === 'social_recovery' && (
+        <ReyIDSocialRecoveryGuardian />
+      )}
+
       {/* TAB CONTENT 5: Biometric Configuration */}
       {activeTab === 'config' && (
         <BiometricConfigSection />
@@ -1292,6 +1426,25 @@ export function ReyIDDashboard() {
           setLivenessCompleted(true);
           triggerSupabaseSync('Prueba de Vida / WebAuthn 2FA Exitosa');
         }}
+      />
+
+      <ReyIDPublicQRModal
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
+        user={{
+          name: user?.name || 'Alex Vanguard',
+          handle: user?.handle || '@alexvanguard',
+          did: user?.did || 'did:rey:0x7aF982ef91b2c41893c8340d91a92182b3A1',
+          walletAddress: user?.walletAddress || '0x71C...89e2',
+          email: user?.email,
+          role: user?.role,
+          kycStatus: user?.kycStatus
+        }}
+      />
+
+      <ReyIDSovereignBackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
       />
 
     </div>

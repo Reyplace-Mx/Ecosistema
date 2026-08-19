@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '../lib/supabase';
 import { syncUserDataToFirestore, subscribeToReyIDFirestore } from '../lib/firestoreSync';
 import { recordReyIDAuthEvent } from '../lib/reyidAuthEvents';
+import {
+  registerWebAuthnCredential,
+  authenticateWithWebAuthn,
+  getStoredBiometricCredentials,
+  detectBiometricHardware
+} from '../lib/webauthn';
 
 export interface UserSession {
   uid: string;
@@ -15,9 +21,10 @@ export interface UserSession {
   kycStatus: 'verified' | 'pending' | 'unverified';
   securityLevel: 'standard' | 'high' | 'maximum';
   joinedAt: string;
-  authProvider?: 'email' | 'google' | 'web3';
+  authProvider?: 'email' | 'google' | 'web3' | 'webauthn';
   livenessVerified?: boolean;
   verificationLevel?: number;
+  biometricCredentialId?: string;
 }
 
 interface AuthContextType {
@@ -27,6 +34,12 @@ interface AuthContextType {
   signup: (email: string, password?: string, name?: string, handle?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithWeb3Wallet: () => Promise<void>;
+  loginWithBiometrics: (credentialId?: string) => Promise<UserSession>;
+  registerWithBiometrics: (
+    fullName?: string,
+    handle?: string,
+    algorithm?: 'ES256' | 'Ed25519' | 'RS256'
+  ) => Promise<{ credential: any; user: UserSession }>;
   logout: () => void;
   updateUserBalance: (amount: number) => void;
   setLivenessVerified: (verified: boolean) => void;
@@ -279,6 +292,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(web3User);
   };
 
+  const loginWithBiometrics = async (credentialId?: string): Promise<UserSession> => {
+    const assertion = await authenticateWithWebAuthn(credentialId);
+    if (!assertion.success) {
+      throw new Error('Fallo en la verificación biométrica del hardware.');
+    }
+
+    const storedPasskeys = getStoredBiometricCredentials();
+    const matchedPasskey = credentialId
+      ? storedPasskeys.find((c) => c.id === credentialId)
+      : storedPasskeys[0];
+
+    const bioUser: UserSession = {
+      ...DEFAULT_USER,
+      uid: `usr_bio_${assertion.credentialId.substring(0, 8)}`,
+      name: matchedPasskey?.userDisplayName || assertion.userName || 'Alex Vanguard (Pro Business)',
+      email: matchedPasskey?.userHandle || 'contacto.reyplace@gmail.com',
+      handle: matchedPasskey?.userHandle?.startsWith('@')
+        ? matchedPasskey.userHandle
+        : `@${(matchedPasskey?.userDisplayName || 'alexvanguard').toLowerCase().replace(/\s+/g, '')}`,
+      did: assertion.didProof || 'did:rey:0x7aF982ef91b2c41893c8340d91a92182b3A1',
+      walletAddress: '0x71C...89e2',
+      reycoinBalance: 14200.0,
+      role: 'Pro Business / Smart City Operator',
+      kycStatus: 'verified',
+      securityLevel: 'maximum',
+      authProvider: 'webauthn',
+      livenessVerified: true,
+      verificationLevel: 3,
+      biometricCredentialId: assertion.credentialId,
+    };
+
+    setUser(bioUser);
+
+    // Record immutable audit event
+    recordReyIDAuthEvent({
+      method: 'WebAuthn / Passkey',
+      status: 'PASSKEY_VALIDATED',
+      statusLabel: 'Autenticación Biométrica Hardware (FIDO2 L3)',
+      device: assertion.authenticatorName || detectBiometricHardware(),
+      did: bioUser.did,
+      user: bioUser.name,
+      ipAddress: '187.190.45.12',
+      location: 'Los Mochis, Sinaloa',
+      cryptographicHash: assertion.signature || `0x${Math.random().toString(16).substring(2, 10)}`,
+      algorithm: assertion.algorithm || 'ES256 (NIST P-256)',
+    });
+
+    return bioUser;
+  };
+
+  const registerWithBiometrics = async (
+    fullName = 'Ciudadano ReyID',
+    handle = '@ciudadano',
+    algorithm: 'ES256' | 'Ed25519' | 'RS256' = 'ES256'
+  ): Promise<{ credential: any; user: UserSession }> => {
+    const cred = await registerWebAuthnCredential(handle, fullName, algorithm);
+
+    const randomDid = `did:rey:0x${Array.from(new Uint8Array(16), () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    const newBioUser: UserSession = {
+      ...DEFAULT_USER,
+      uid: `usr_bio_${cred.id.substring(0, 8)}`,
+      name: fullName,
+      email: `${handle.replace('@', '')}@reyplace.live`,
+      handle: handle.startsWith('@') ? handle : `@${handle}`,
+      did: randomDid,
+      walletAddress: `0x${randomDid.substring(10, 16)}...${randomDid.substring(randomDid.length - 4)}`,
+      reycoinBalance: 500.0,
+      role: 'Verified Citizen (Hardware Enclave)',
+      kycStatus: 'verified',
+      securityLevel: 'maximum',
+      authProvider: 'webauthn',
+      livenessVerified: true,
+      verificationLevel: 3,
+      biometricCredentialId: cred.id,
+    };
+
+    setUser(newBioUser);
+
+    recordReyIDAuthEvent({
+      method: 'WebAuthn / Passkey',
+      status: 'SUCCESS',
+      statusLabel: 'Enclave Seguro Inicializado (Registro WebAuthn)',
+      device: cred.authenticatorName,
+      did: newBioUser.did,
+      user: newBioUser.name,
+      ipAddress: '187.190.45.12',
+      location: 'Los Mochis, Sinaloa',
+      cryptographicHash: `0x${Math.random().toString(16).substring(2, 12)}`,
+      algorithm: cred.algorithm,
+    });
+
+    return { credential: cred, user: newBioUser };
+  };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -310,6 +417,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         loginWithGoogle,
         loginWithWeb3Wallet,
+        loginWithBiometrics,
+        registerWithBiometrics,
         logout,
         updateUserBalance,
         setLivenessVerified,

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, User, ShieldCheck, Sparkles, Fingerprint, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Mail, Lock, User, ShieldCheck, Sparkles, Fingerprint, ArrowRight, CheckCircle2, Scan, KeyRound, Cpu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { checkWebAuthnSupport, detectBiometricHardware } from '../lib/webauthn';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,11 +18,49 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hardwareInfo, setHardwareInfo] = useState<string>('Biometría FIDO2');
+  const [hasBiometrics, setHasBiometrics] = useState<boolean>(true);
 
-  const { login, signup, loginWithGoogle, loginWithWeb3Wallet } = useAuth();
+  const { login, signup, loginWithGoogle, loginWithWeb3Wallet, loginWithBiometrics, registerWithBiometrics } = useAuth();
   const { toast } = useToast();
 
+  useEffect(() => {
+    checkWebAuthnSupport().then((res) => {
+      setHardwareInfo(res.hardwareName);
+      setHasBiometrics(res.supported);
+    });
+  }, []);
+
   if (!isOpen) return null;
+
+  const handleBiometricAuth = async () => {
+    setIsLoading(true);
+    try {
+      if (mode === 'login') {
+        const bioUser = await loginWithBiometrics();
+        toast.success(
+          '¡Acceso Biométrico Concedido!',
+          `Bienvenido ${bioUser.name}. Autenticado vía ${hardwareInfo} (FIDO2 Enclave).`
+        );
+      } else {
+        const result = await registerWithBiometrics(
+          name || 'Ciudadano ReyID',
+          '@' + (name.toLowerCase().replace(/\s+/g, '') || 'ciudadano'),
+          'ES256'
+        );
+        toast.success(
+          '¡Registro Biométrico Exitoso!',
+          `Tu hardware (${result.credential.authenticatorName}) ha sido vinculado a tu nuevo DID.`
+        );
+      }
+      setIsLoading(false);
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) {
+      setIsLoading(false);
+      toast.error('Verificación Biométrica Cancelada', err?.message || 'No se completó la lectura de huella o rostro.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +71,10 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, name || 'Usuario Reyplace');
+        await login(email, password, name || 'Usuario Reyplace');
         toast.success('Sesión Iniciada', 'Bienvenido de nuevo al Ecosistema Reyplace.');
       } else {
-        await signup(email, name || 'Usuario Reyplace', '@' + (name.toLowerCase().replace(/\s+/g, '') || 'usuario'));
+        await signup(email, password, name || 'Usuario Reyplace', '@' + (name.toLowerCase().replace(/\s+/g, '') || 'usuario'));
         toast.success('Registro Exitoso', 'Tu identidad ReyID ha sido aprovisionada con éxito.');
       }
       setIsLoading(false);
@@ -95,7 +134,7 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
           </button>
 
           {/* Header */}
-          <div className="text-center mb-6">
+          <div className="text-center mb-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00d2ff]/10 border border-[#00d2ff]/30 text-[#00d2ff] text-xs font-mono font-bold mb-3">
               <ShieldCheck className="w-3.5 h-3.5" /> REYID SECURE ACCESS
             </div>
@@ -107,13 +146,41 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
             </p>
           </div>
 
-          {/* Social Auth Buttons */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          {/* Primary Biometric WebAuthn Button */}
+          <div className="mb-5">
+            <button
+              onClick={handleBiometricAuth}
+              disabled={isLoading}
+              type="button"
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl shadow-cyan-500/25 flex items-center justify-between group cursor-pointer border border-cyan-300/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center shrink-0">
+                  <Fingerprint className="w-5 h-5 text-black group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-left font-mono">
+                  <div className="font-black text-black leading-tight text-xs">
+                    {mode === 'login' ? 'Acceso Biométrico / Passkey' : 'Vincular Biometría Hardware'}
+                  </div>
+                  <div className="text-[10px] text-black/75 truncate max-w-[200px]">
+                    {hardwareInfo}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 bg-black/20 px-2 py-1 rounded-lg text-[10px] font-mono text-black font-bold">
+                <Scan className="w-3 h-3 animate-pulse" /> FIDO2
+              </div>
+            </button>
+          </div>
+
+          {/* Alternative Social Auth Buttons */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
             <button
               onClick={handleGoogle}
               disabled={isLoading}
               type="button"
-              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] cursor-pointer"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] cursor-pointer font-mono"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
@@ -128,20 +195,20 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
               onClick={handleWeb3}
               disabled={isLoading}
               type="button"
-              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] cursor-pointer"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] cursor-pointer font-mono"
             >
-              <Fingerprint className="w-4 h-4 text-[#00d2ff]" />
+              <KeyRound className="w-4 h-4 text-[#00d2ff]" />
               <span>Web3 Wallet</span>
             </button>
           </div>
 
-          <div className="relative flex items-center justify-center mb-6">
+          <div className="relative flex items-center justify-center mb-5">
             <div className="border-t border-white/10 w-full" />
-            <span className="bg-[#061024] px-3 text-[10px] text-gray-500 font-mono uppercase tracking-widest absolute">o usa tu correo</span>
+            <span className="bg-[#061024] px-3 text-[10px] text-gray-500 font-mono uppercase tracking-widest absolute">o credenciales manuales</span>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === 'signup' && (
               <div>
                 <label className="block text-[11px] font-mono text-gray-400 mb-1">Nombre Completo</label>
@@ -152,7 +219,7 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ej. Carlos Mendoza"
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff]"
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff] font-mono"
                   />
                 </div>
               </div>
@@ -168,7 +235,7 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ejemplo@reyplace.com"
                   required
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff]"
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff] font-mono"
                 />
               </div>
             </div>
@@ -183,7 +250,7 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff]"
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00d2ff] font-mono"
                 />
               </div>
             </div>
@@ -191,13 +258,13 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full brand-button-spectrum text-white font-extrabold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
+              className="w-full bg-white/10 hover:bg-white/15 text-white font-extrabold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2 border border-white/10 font-mono transition-all"
             >
               {isLoading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>{mode === 'login' ? 'Acceder al Ecosistema' : 'Registrar Mi ReyID'}</span>
+                  <span>{mode === 'login' ? 'Entrar con Contraseña' : 'Crear Cuenta Tradicional'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -205,7 +272,7 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
           </form>
 
           {/* Toggle mode */}
-          <div className="mt-5 text-center text-xs text-gray-400">
+          <div className="mt-4 text-center text-xs text-gray-400">
             {mode === 'login' ? (
               <p>
                 ¿No tienes cuenta aún?{' '}
@@ -231,8 +298,14 @@ export function AuthModal({ isOpen, initialMode = 'login', onClose, onSuccess }:
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-center gap-2 text-[10px] text-gray-500 font-mono">
-            <CheckCircle2 className="w-3 h-3 text-[#10b981]" /> CÚPULA DIGITAL CERTIFIED • LOS MOCHIS, SINALOA
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-mono">
+            <div className="flex items-center gap-1.5">
+              <Cpu className="w-3 h-3 text-cyan-400" />
+              <span>ENCLAVE SEGURO ACTIVO</span>
+            </div>
+            <div className="flex items-center gap-1 text-emerald-400 font-bold">
+              <CheckCircle2 className="w-3 h-3" /> FIDO2 L3 CERTIFIED
+            </div>
           </div>
         </motion.div>
       </div>

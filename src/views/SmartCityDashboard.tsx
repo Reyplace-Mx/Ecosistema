@@ -35,7 +35,9 @@ import { IssueReportModal } from '../components/IssueReportModal';
 import { SmartCityTraffic3DWidget } from '../components/SmartCityTraffic3DWidget';
 import { CitizenToolsHub } from '../components/CitizenToolsHub';
 import { SmartCitySupabaseManager } from '../components/SmartCitySupabaseManager';
-import { ShieldCheck, Database } from 'lucide-react';
+import { SmartCityArchitectSuite } from '../components/SmartCityArchitectSuite';
+import { Photorealistic3DTilesPlanner } from '../components/Photorealistic3DTilesPlanner';
+import { ShieldCheck, Database, Cpu, Box } from 'lucide-react';
 
 const MOCK_ALERTS: CityAlert[] = [
   {
@@ -154,7 +156,7 @@ const INFRA_NODES: InfraNode[] = [
 ];
 
 export function SmartCityDashboard() {
-  const [activeTab, setActiveTab] = useState<'map' | 'analytics' | 'alerts' | 'sensors' | 'reports' | 'tools' | 'supabase_security'>('supabase_security');
+  const [activeTab, setActiveTab] = useState<'photorealistic_3d' | 'architect' | 'supabase_security' | 'map' | 'analytics' | 'alerts' | 'sensors' | 'reports' | 'tools'>('photorealistic_3d');
   const [mapViewMode, setMapViewMode] = useState<'traffic_3d' | 'hologram_nodes'>('traffic_3d');
   const [mapLayer, setMapLayer] = useState<'all' | 'transport' | 'safety' | 'services'>('all');
   const [selectedNode, setSelectedNode] = useState<InfraNode | null>(null);
@@ -208,19 +210,41 @@ export function SmartCityDashboard() {
             <Building2 className="w-8 h-8 text-blue-600 dark:text-blue-500" />
             Smart City <span className="text-slate-400 dark:text-gray-600 font-medium text-2xl">/ Centro de Control</span>
           </h1>
-          <p className="text-slate-500 dark:text-gray-400 mt-2 font-medium">Monitoreo urbano en tiempo real. Integrado con mapas holográficos, analítica Recharts, reportes blockchain, detector de billetes falsos y herramientas ciudadanas.</p>
+          <p className="text-slate-500 dark:text-gray-400 mt-2 font-medium">Monitoreo urbano en tiempo real. Integrado con mapas holográficos, analítica Recharts, arquitectura híbrida IoT/Edge AI, reportes blockchain y herramientas ciudadanas.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-[#111112] border border-slate-200 dark:border-white/5 rounded-xl p-1.5 shadow-sm">
+          <button 
+            onClick={() => setActiveTab('photorealistic_3d')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'photorealistic_3d' 
+                ? 'bg-gradient-to-r from-sky-500 via-cyan-500 to-teal-500 text-black font-extrabold shadow-md shadow-cyan-500/30 border border-cyan-300' 
+                : 'text-slate-600 dark:text-cyan-400 hover:text-cyan-300'
+            }`}
+          >
+            <Box className="w-4 h-4" />
+            <span>Teselas 3D Fotorrealistas (Map Tiles API)</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('architect')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'architect' 
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-extrabold shadow-md shadow-cyan-500/25 border border-cyan-400' 
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            <span>Arquitectura Híbrida & Edge AI</span>
+          </button>
           <button 
             onClick={() => setActiveTab('supabase_security')}
             className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'supabase_security' 
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-extrabold shadow-md shadow-cyan-500/25 border border-cyan-400' 
-                : 'text-slate-600 dark:text-cyan-400 hover:text-cyan-300'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold shadow-md shadow-blue-500/25 border border-blue-400' 
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>Base de Datos & Seguridad Supabase</span>
+            <span>Base de Datos Supabase</span>
           </button>
           <button 
             onClick={() => setActiveTab('map')}
@@ -844,6 +868,16 @@ export function SmartCityDashboard() {
               </div>
            </div>
         </div>
+      )}
+
+      {/* Visualizador Inmersivo Photorealistic 3D Tiles (Google Map Tiles API) */}
+      {activeTab === 'photorealistic_3d' && (
+        <Photorealistic3DTilesPlanner />
+      )}
+
+      {/* Suite de Arquitectura Híbrida, Edge AI, Resiliencia y Gobernanza */}
+      {activeTab === 'architect' && (
+        <SmartCityArchitectSuite />
       )}
 
       {/* Consola de Gestión: Base de Datos y Seguridad Supabase Smart City Los Mochis */}

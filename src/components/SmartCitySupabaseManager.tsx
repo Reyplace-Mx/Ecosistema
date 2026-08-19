@@ -43,6 +43,7 @@ import {
   SmartCityEnergyNode,
   SmartCityLegacyAsset
 } from '../lib/smartCitySupabase';
+import { SecurityDomeAuditModal } from './SecurityDomeAuditModal';
 
 interface SmartCitySupabaseManagerProps {
   onClose?: () => void;
@@ -72,6 +73,7 @@ export function SmartCitySupabaseManager({ onClose, className = '' }: SmartCityS
   const [generatedSQL, setGeneratedSQL] = useState<string>('');
   const [queryResult, setQueryResult] = useState<any>(null);
   const [isQueryingAgent, setIsQueryingAgent] = useState(false);
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -171,7 +173,15 @@ WHERE system_origin = 'TRANSITO_AHOME_SEMAFOROS'
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            onClick={() => setIsSecurityModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 text-black" />
+            <span>18 Reglas de Seguridad</span>
+          </button>
+
           <button
             onClick={handleRunSecurityAudit}
             disabled={isExecutingTest}
@@ -693,6 +703,11 @@ ON public.smartcity_traffic_sensors FOR SELECT USING (true);`}
           Ecosistema Digital Reyplace • Ahome, Sinaloa
         </div>
       </div>
+
+      <SecurityDomeAuditModal
+        isOpen={isSecurityModalOpen}
+        onClose={() => setIsSecurityModalOpen(false)}
+      />
     </div>
   );
 }
